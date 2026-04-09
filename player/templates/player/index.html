@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bass Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  /* ── Design direction: industrial rack-mount unit. Dark brushed metal,
+     amber VU-meter glow, chunky controls. ── */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0d0d;
+    --panel:     #1a1a1a;
+    --panel2:    #222222;
+    --border:    #333;
+    --amber:     #ffaa00;
+    --amber-dim: #7a4e00;
+    --red:       #ff3a2a;
+    --text:      #e0c97f;
+    --text-dim:  #5a4a20;
+    --screw:     #2e2e2e;
+  }
+
+  body {
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+  }
+
+  /* Rack unit chassis */
+  .chassis {
+    width: 520px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    box-shadow:
+      0 0 0 1px #111,
+      0 8px 40px rgba(0,0,0,0.9),
+      inset 0 1px 0 #333;
+    padding: 28px 32px 32px;
+    position: relative;
+
+    /* Brushed-metal texture via repeating gradient */
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,0.012) 2px,
+      rgba(255,255,255,0.012) 4px
+    );
+  }
+
+  /* Corner screws */
+  .chassis::before, .chassis::after,
+  .screw-bl, .screw-br {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #444, #1a1a1a);
+    border: 1px solid #555;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+  }
+  .chassis::before { top: 10px; left: 10px; }
+  .chassis::after  { top: 10px; right: 10px; }
+  .screw-bl { bottom: 10px; left: 10px; }
+  .screw-br { bottom: 10px; right: 10px; }
+
+  /* Brand strip */
+  .brand {
+    text-align: center;
+    margin-bottom: 24px;
+    letter-spacing: 0.3em;
+  }
+  .brand h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: var(--amber);
+    text-shadow: 0 0 12px var(--amber-dim);
+    letter-spacing: 0.5em;
+  }
+  .brand small {
+    display: block;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.25em;
+    margin-top: 2px;
+  }
+
+  /* Separator line */
+  .rule {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 24px;
+  }
+
+  /* VU-style meter bar */
+  .meter-wrap {
+    background: #0a0a0a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    height: 14px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    position: relative;
+  }
+  .meter-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #226622, #44cc44, #aadd00, var(--amber), var(--red));
+    transition: width 0.08s linear;
+    border-radius: 1px;
+  }
+  .meter-label {
+    position: absolute;
+    right: 6px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  /* File name display */
+  .file-display {
+    background: #0a0a0a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: var(--amber);
+    text-shadow: 0 0 8px var(--amber-dim);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .file-display .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--amber-dim);
+    flex-shrink: 0;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .file-display .dot.active {
+    background: var(--amber);
+    box-shadow: 0 0 8px var(--amber);
+  }
+
+  /* Controls row */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  /* Play/stop button */
+  .btn-play {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    border: 2px solid var(--amber-dim);
+    background: radial-gradient(circle at 40% 35%, #2a2200, #0d0d0d);
+    color: var(--amber);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 3px #111, inset 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .btn-play:hover {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px #111, 0 0 16px var(--amber-dim), inset 0 2px 4px rgba(0,0,0,0.6);
+  }
+  .btn-play:active { transform: scale(0.95); }
+  .btn-play.playing {
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 0 0 3px #111, 0 0 20px rgba(255,58,42,0.4), inset 0 2px 4px rgba(0,0,0,0.6);
+  }
+
+  /* Bass section */
+  .bass-section {
+    flex: 1;
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+  }
+  .bass-section label {
+    display: block;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 10px;
+  }
+  .bass-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .btn-bass {
+    width: 38px; height: 38px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: #111;
+    color: var(--text);
+    font-size: 1.3rem;
+    font-family: 'Share Tech Mono', monospace;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s, box-shadow 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .btn-bass:hover {
+    background: #1e1e1e;
+    color: var(--amber);
+    border-color: var(--amber-dim);
+    box-shadow: 0 0 8px var(--amber-dim);
+  }
+  .btn-bass:active { transform: scale(0.93); }
+  .btn-bass:disabled {
+    opacity: 0.3;
+    cursor: default;
+    box-shadow: none;
+  }
+
+  /* Bass gain bar */
+  .gain-track {
+    flex: 1;
+    height: 8px;
+    background: #0a0a0a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    position: relative;
+    overflow: visible;
+  }
+  /* Centre tick mark */
+  .gain-track::before {
+    content: '';
+    position: absolute;
+    left: 50%; top: -4px; bottom: -4px;
+    width: 1px;
+    background: var(--border);
+  }
+  .gain-fill {
+    position: absolute;
+    top: 0; height: 100%;
+    background: var(--amber);
+    border-radius: 2px;
+    transition: left 0.15s, width 0.15s;
+    opacity: 0.85;
+  }
+  .gain-value {
+    text-align: center;
+    font-size: 0.65rem;
+    color: var(--amber);
+    margin-top: 6px;
+    letter-spacing: 0.1em;
+    min-height: 1em;
+  }
+
+  /* Status / loading */
+  .status {
+    margin-top: 20px;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    min-height: 1em;
+    text-align: center;
+  }
+  .status.error { color: var(--red); }
+
+  /* Loading animation */
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .loading { animation: blink 0.8s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="chassis">
+  <div class="screw-bl"></div>
+  <div class="screw-br"></div>
+
+  <div class="brand">
+    <h1>BASSUNIT</h1>
+    <small>MODEL BU-1 · AUDIO PROCESSOR</small>
+  </div>
+
+  <hr class="rule">
+
+  <div class="meter-wrap">
+    <div class="meter-bar" id="meterBar"></div>
+    <span class="meter-label">LEVEL</span>
+  </div>
+
+  <div class="file-display">
+    <span class="dot" id="dot"></span>
+    <span>sample.wav</span>
+  </div>
+
+  <div class="controls">
+    <button class="btn-play" id="btnPlay" title="Play / Stop">▶</button>
+
+    <div class="bass-section">
+      <label>BASS EQ (dB)</label>
+      <div class="bass-row">
+        <button class="btn-bass" id="btnMinus">−</button>
+        <div class="gain-track">
+          <div class="gain-fill" id="gainFill"></div>
+        </div>
+        <button class="btn-bass" id="btnPlus">+</button>
+      </div>
+      <div class="gain-value" id="gainValue">0 dB</div>
+    </div>
+  </div>
+
+  <div class="status" id="status">READY</div>
+</div>
+
+<script>
+  // ── State ───────────────────────────────────────────────────
+  let bassGain = 10;          // current EQ gain, -12 … +12 dB
+  const STEP = 1;            // dB per button press
+  const MAX  = 20;
+  const MIN  = 0;
+
+  let audio         = null;  // current Audio object
+  let meterInterval = null;  // RAF/interval handle for VU meter
+
+  // ── DOM refs ────────────────────────────────────────────────
+  const btnPlay   = document.getElementById('btnPlay');
+  const btnPlus   = document.getElementById('btnPlus');
+  const btnMinus  = document.getElementById('btnMinus');
+  const gainFill  = document.getElementById('gainFill');
+  const gainValue = document.getElementById('gainValue');
+  const meterBar  = document.getElementById('meterBar');
+  const dot       = document.getElementById('dot');
+  const statusEl  = document.getElementById('status');
+
+  // ── Bass gain UI ─────────────────────────────────────────────
+  function updateGainUI() {
+    // Map -12…+12 onto 0…100% with 50% = 0 dB
+    const pct = ((bassGain - MIN) / (MAX - MIN)) * 100;  // 0–100
+    const centre = 50;
+
+    if (bassGain >= 0) {
+      gainFill.style.left  = centre + '%';
+      gainFill.style.width = (pct - centre) + '%';
+    } else {
+      gainFill.style.left  = pct + '%';
+      gainFill.style.width = (centre - pct) + '%';
+    }
+
+    gainFill.style.background = bassGain >= 0 ? 'var(--amber)' : '#4488ff';
+    gainValue.textContent = (bassGain >= 0 ? '+' : '') + bassGain + ' dB';
+    btnPlus.disabled  = bassGain >= MAX;
+    btnMinus.disabled = bassGain <= MIN;
+  }
+
+  btnPlus.addEventListener('click', () => {
+    if (bassGain < MAX) { bassGain += STEP; updateGainUI(); }
+  });
+  btnMinus.addEventListener('click', () => {
+    if (bassGain > MIN) { bassGain -= STEP; updateGainUI(); }
+  });
+
+  // ── VU meter (driven by Web Audio API analyser) ──────────────
+  let audioCtx    = null;
+  let analyser    = null;
+  let sourceNode  = null;
+  let dataArray   = null;
+
+  function setupAnalyser(audioEl) {
+    // Create (or reuse) an AudioContext and wire the <audio> element into it
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (sourceNode) { try { sourceNode.disconnect(); } catch(e){} }
+    sourceNode = audioCtx.createMediaElementSource(audioEl);
+    analyser   = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    dataArray  = new Uint8Array(analyser.frequencyBinCount);
+    sourceNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+
+  function animateMeter() {
+    if (!analyser) return;
+    analyser.getByteTimeDomainData(dataArray);
+    // RMS level
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const v = (dataArray[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / dataArray.length);
+    meterBar.style.width = Math.min(100, rms * 600) + '%';
+    meterInterval = requestAnimationFrame(animateMeter);
+  }
+
+  // ── Play / stop ──────────────────────────────────────────────
+  function setStatus(msg, cls='') {
+    statusEl.textContent = msg;
+    statusEl.className   = 'status ' + cls;
+  }
+
+  function stopPlayback() {
+    if (audio) {
+      audio.pause();
+      audio.src = '';
+      audio = null;
+    }
+    cancelAnimationFrame(meterInterval);
+    meterInterval = null;
+    meterBar.style.width = '0%';
+    btnPlay.textContent = '▶';
+    btnPlay.classList.remove('playing');
+    dot.classList.remove('active');
+    setStatus('READY');
+  }
+
+  btnPlay.addEventListener('click', async () => {
+    if (audio && !audio.paused) {
+      stopPlayback();
+      return;
+    }
+
+    // Stop any leftover audio
+    stopPlayback();
+
+    setStatus('PROCESSING…', 'loading');
+    btnPlay.disabled = true;
+
+    try {
+      // Fetch the EQ-processed audio from Django
+      const url = `/audio/?bass=${bassGain}`;
+      const resp = await fetch(url);
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(err);
+      }
+
+      const blob = await resp.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      audio = new Audio(blobUrl);
+      setupAnalyser(audio);
+
+      audio.addEventListener('ended', stopPlayback);
+      audio.addEventListener('error', () => {
+        setStatus('PLAYBACK ERROR', 'error');
+        stopPlayback();
+      });
+
+      await audio.play();
+
+      btnPlay.textContent = '■';
+      btnPlay.classList.add('playing');
+      dot.classList.add('active');
+      setStatus('PLAYING');
+      animateMeter();
+
+    } catch (err) {
+      setStatus('ERROR: ' + err.message, 'error');
+      stopPlayback();
+    } finally {
+      btnPlay.disabled = false;
+    }
+  });
+
+  // ── Init ─────────────────────────────────────────────────────
+  updateGainUI();
+</script>
+</body>
+</html>
