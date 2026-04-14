@@ -1,7 +1,12 @@
 # Audiophile-training
 Python GUI application for training a Users ability to listen intently and distinguish different sound parameters.
 
-# Installing & running:
+## Audio Files
+Place your audio files in the `audio/` directory. The application supports WAV files. Currently included:
+- `Gray_noise.wav` - Gray noise sample
+- `sample.wav` - 440Hz sine wave sample
+
+## Installing & running:
 FFMPEG is required, if you don't have ffmpeg installed;
 ```
 sudo apt install ffmpeg -y

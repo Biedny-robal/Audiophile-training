@@ -128,30 +128,22 @@
     pointer-events: none;
   }
 
-  /* File name display */
-  .file-display {
+  /* File selector */
+  .file-selector {
     background: #0a0a0a;
     border: 1px solid var(--border);
     border-radius: 2px;
     padding: 8px 12px;
     font-size: 0.75rem;
     color: var(--amber);
-    text-shadow: 0 0 8px var(--amber-dim);
+    font-family: 'Share Tech Mono', monospace;
     margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    min-width: 200px;
   }
-  .file-display .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--amber-dim);
-    flex-shrink: 0;
-    transition: background 0.2s, box-shadow 0.2s;
-  }
-  .file-display .dot.active {
-    background: var(--amber);
-    box-shadow: 0 0 8px var(--amber);
+  .file-selector:focus {
+    outline: none;
+    border-color: var(--amber);
+    box-shadow: 0 0 8px var(--amber-dim);
   }
 
   /* Controls row */
@@ -301,10 +293,10 @@
     <span class="meter-label">LEVEL</span>
   </div>
 
-  <div class="file-display">
-    <span class="dot" id="dot"></span>
-    <span>sample.wav</span>
-  </div>
+  <select class="file-selector" id="fileSelector">
+    <option value="Gray_noise.wav" selected>Gray_noise.wav</option>
+    <option value="sample.wav">sample.wav</option>
+  </select>
 
   <div class="controls">
     <button class="btn-play" id="btnPlay" title="Play / Stop">▶</button>
@@ -336,14 +328,14 @@
   let meterInterval = null;  // RAF/interval handle for VU meter
 
   // ── DOM refs ────────────────────────────────────────────────
-  const btnPlay   = document.getElementById('btnPlay');
-  const btnPlus   = document.getElementById('btnPlus');
-  const btnMinus  = document.getElementById('btnMinus');
-  const gainFill  = document.getElementById('gainFill');
-  const gainValue = document.getElementById('gainValue');
-  const meterBar  = document.getElementById('meterBar');
-  const dot       = document.getElementById('dot');
-  const statusEl  = document.getElementById('status');
+  const btnPlay     = document.getElementById('btnPlay');
+  const btnPlus     = document.getElementById('btnPlus');
+  const btnMinus    = document.getElementById('btnMinus');
+  const gainFill    = document.getElementById('gainFill');
+  const gainValue   = document.getElementById('gainValue');
+  const meterBar    = document.getElementById('meterBar');
+  const fileSelector = document.getElementById('fileSelector');
+  const statusEl    = document.getElementById('status');
 
   // ── Bass gain UI ─────────────────────────────────────────────
   function updateGainUI() {
@@ -421,7 +413,6 @@
     meterBar.style.width = '0%';
     btnPlay.textContent = '▶';
     btnPlay.classList.remove('playing');
-    dot.classList.remove('active');
     setStatus('READY');
   }
 
@@ -439,7 +430,8 @@
 
     try {
       // Fetch the EQ-processed audio from Django
-      const url = `/audio/?bass=${bassGain}`;
+      const selectedFile = fileSelector.value;
+      const url = `/audio/?bass=${bassGain}&file=${encodeURIComponent(selectedFile)}`;
       const resp = await fetch(url);
 
       if (!resp.ok) {
@@ -463,7 +455,6 @@
 
       btnPlay.textContent = '■';
       btnPlay.classList.add('playing');
-      dot.classList.add('active');
       setStatus('PLAYING');
       animateMeter();
 

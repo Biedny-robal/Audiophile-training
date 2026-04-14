@@ -5,8 +5,8 @@ from django.shortcuts import render
 from django.http import HttpResponse, Http404
 from django.conf import settings
 
-# Path to the source audio file — must be in the same directory as manage.py
-AUDIO_FILE = os.path.join(settings.BASE_DIR, 'Gray_noise.wav')
+# Path to the audio files directory
+AUDIO_DIR = os.path.join(settings.BASE_DIR, 'audio')
 
 
 def index(request):
@@ -16,16 +16,30 @@ def index(request):
 
 def serve_audio(request):
     """
-    Process sample.wav with ffmpeg, applying a bass EQ boost/cut,
+    Process audio file with ffmpeg, applying a bass EQ boost/cut,
     and stream the resulting audio back to the browser.
 
-    Query param:
+    Query params:
         bass (int): gain in dB for the low-frequency equalizer band.
                     Positive = louder bass, negative = quieter.
-                    Clamped to [-12, +12] on the server for safety.
+                    Clamped to [0, 20] on the server for safety.
+        file (str): name of the audio file to process (e.g., 'Gray_noise.wav', 'sample.wav')
     """
+    # Get the requested audio file
+    audio_filename = request.GET.get('file', 'Gray_noise.wav')
+    
+    # Validate filename to prevent directory traversal
+    if '..' in audio_filename or '/' in audio_filename or '\\' in audio_filename:
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+    
+    AUDIO_FILE = os.path.join(AUDIO_DIR, audio_filename)
+    
+    # Ensure the file is within the audio directory
+    if not os.path.abspath(AUDIO_FILE).startswith(os.path.abspath(AUDIO_DIR)):
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+    
     if not os.path.exists(AUDIO_FILE):
-        raise Http404("Gray_noise.wav not found in project directory.")
+        raise Http404(f"{audio_filename} not found in audio directory.")
 
     # Read and clamp the requested bass gain
     try:
