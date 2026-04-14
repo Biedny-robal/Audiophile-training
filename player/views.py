@@ -11,7 +11,7 @@ AUDIO_DIR = os.path.join(settings.BASE_DIR, 'audio')
 
 def index(request):
     """Render the main player page."""
-    return render(request, 'player/index.html')
+    return render(request, 'player/test.html')
 
 
 def serve_audio(request):
@@ -43,10 +43,9 @@ def serve_audio(request):
 
     # Read and clamp the requested bass gain
     try:
-        bass_gain = int(request.GET.get('bass', 0))
+        freq = int(request.GET.get('freq', 0))
     except (ValueError, TypeError):
-        bass_gain = 0
-    bass_gain = max(0, min(20, bass_gain))
+        freq = 0
 
     # Build the ffmpeg filter:
     #   equalizer=f=100        — centre frequency 100 Hz (upper bass)
@@ -55,7 +54,7 @@ def serve_audio(request):
     #   g=<gain>               — gain in dB
     # When gain is 0 we still run through ffmpeg so the pipeline is uniform,
     # but you could short-circuit and serve the raw file if you prefer.
-    eq_filter = f"volume={bass_gain/10}"
+    eq_filter = f"equalizer=f={freq}:w=10:g=12"
 
     # Write ffmpeg output into a temporary file so we can stream it cleanly.
     # We use a named temp file because ffmpeg needs a seekable output target

@@ -431,7 +431,7 @@
     try {
       // Fetch the EQ-processed audio from Django
       const selectedFile = fileSelector.value;
-      const url = `/audio/?bass=${bassGain}&file=${encodeURIComponent(selectedFile)}`;
+      const url = `/audio/?freq=1000&file=${encodeURIComponent(selectedFile)}`;
       const resp = await fetch(url);
 
       if (!resp.ok) {
