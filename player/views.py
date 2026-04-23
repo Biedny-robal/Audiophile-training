@@ -11,7 +11,7 @@ AUDIO_DIR = os.path.join(settings.BASE_DIR, 'audio')
 
 def index(request):
     """Render the main player page."""
-    return render(request, 'player/test.html')
+    return render(request, 'player/index.html')
 
 
 def serve_audio(request):
