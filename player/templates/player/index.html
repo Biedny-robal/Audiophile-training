@@ -1,224 +1,470 @@
 <!DOCTYPE html>
 <html lang="en">
-<style>
-:root {
-  --red-hard: #ba0c00;
-  --red-light: #ff6d63;
-  --yellow-hard: #fce700;
-  --yellow-light: #fff47d;
-  --green-hard: #00ff22;
-  --green-light: #8fff9e;
-}
-.Box{
-  align-items: center;
-  border: 10px solid beige;
-}
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
-</style>
+  <title>EQ Trainer</title>
+  <style>
+    :root {
+      --bg:            #7A306C;  /* page background                            */
+      --text:          #A9E4EF;  /* primary text color                         */
+      --accent1:       #8E8DBE;  /* radio button borders / box border          */
+      --accent2:       #81F495;  /* main button (Play/Stop, Submit/Next)       */
+      --accent3:       #96F550;  /* hover highlight, status text               */
+      --wrong-light:   #EB9486;  /* wrong answer – softer red (text)           */
+      --wrong-hard:    #FF6F59;  /* wrong answer – stronger red (border)       */
 
-<div class="Testing" hidden=true>
- <input type="checkbox" id="vehicle1" name="vehicle1" value="Bike">
-  <label for="vehicle1"> I have a bike</label><br>
-  <input type="checkbox" id="vehicle2" name="vehicle2" value="Car">
-  <label for="vehicle2"> I have a car</label><br>
-  <input type="checkbox" id="vehicle3" name="vehicle3" value="Boat">
-  <label for="vehicle3"> I have a boat</label><br>
-  <menu>
-    <li>Coffee</li>
-    <li>Tea</li>
-    <li>Milk</li>
-  </menu>
-  <label for="cars">Choose a car:</label>
-
-  <select id="cars">
-    <option value="volvo">Volvo</option>
-    <option value="saab">Saab</option>
-    <option value="opel">Opel</option>
-    <option value="audi">Audi</option>
-  </select>
-  <input type="radio" id="html" name="fav_language" value="HTML">
-  <label for="html">HTML</label><br>
-  <input type="radio" id="css" name="fav_language" value="CSS">
-  <label for="css">CSS</label><br>
-  <input type="radio" id="javascript" name="fav_language" value="JavaScript">
-  <label for="javascript">JavaScript</label>
-</div>
-
-
-<div class="Box" id="InnerBox">
-  <h2 class="AnswerIndicator" id="AnswerIndicator">Submit answer</h2>
-  <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
-  <select class="file-selector" id="fileSelector">
-    <option value="Gray_noise.wav" selected>Gray_noise.wav</option>
-    <option value="sample.wav">sample.wav</option>
-  </select>
-  <h3 class="status" id="status">ready</h3>
-  <h3 class="TaskDescription">Select which band has been changed</h3>
-  <input type="radio" id="60" name="freq" value="60Hz">
-  <label for="60">60Hz</label><br>
-  <input type="radio" id="125" name="freq" value="125Hz">
-  <label for="125">125Hz</label><br>
-  <input type="radio" id="250" name="freq" value="250Hz">
-  <label for="250">250Hz</label><br>
-  <input type="radio" id="500" name="freq" value="500Hz">
-  <label for="500">500Hz</label><br>
-  <input type="radio" id="1000" name="freq" value="1000Hz">
-  <label for="1000">1kHz</label><br>
-  <input type="radio" id="2000" name="freq" value="2000Hz">
-  <label for="2000">2kHz</label><br>
-  <input type="radio" id="4000" name="freq" value="4000Hz">
-  <label for="4000">4kHz</label><br>
-  <input type="radio" id="8000" name="freq" value="8000Hz">
-  <label for="8000">8kHz</label><br>
-  <input type="radio" id="16000" name="freq" value="16000Hz">
-  <label for="125">16kHz</label><br>
-  <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
-</div>
-
-<script>
-  // STATE
-  let audio = null;
-  var freq = null;
-  let freqValues=new Map();
-  freqValues.set("0",60);
-  freqValues.set("1",125);
-  freqValues.set("2",250);
-  freqValues.set("3",500);
-  freqValues.set("4",1000);
-  freqValues.set("5",2000);
-  freqValues.set("6",4000);
-  freqValues.set("7",8000);
-  freqValues.set("8",16000);
-  // DOM referals
-  const AnsIndicator = document.getElementById('AnswerIndicator');
-  const PlayStopBtn = document.getElementById('PlayStopBtn');
-  var freqs = document.querySelectorAll('input[name="freq"]');
-  const SubmitNextBtn = document.getElementById('SubmitNextBtn');
-  const InnerBox = document.getElementById('InnerBox');
-  const statusEl = document.getElementById('status');
-  var targetFreq = freqValues.get(newFreq());
-  console.log(targetFreq);
-
-  //Reading selected frequency
-  freqs.forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      freq = document.querySelector('input[name="freq"]:checked').value;
-      console.log(freq);
-    })
-  });
-
-  //selecting random frequency
-  function newFreq(){
-    return Math.floor(Math.random() * 9).toString();
-  }
-
-  // SubmitNextBtn
-  function submit() {
-    stopPlayback();
-    if(freq==null){
-      AnsIndicator.textContent="You Must Select a fequency before submitting.";
-      InnerBox.style.border="10px solid #fce700";
-      InnerBox.style.background="#fff47d";
-      SubmitNextBtn.addEventListener('click', submit, {once: true});
-      return;
-    } else if(freq==targetFreq.toString()+"Hz"){
-      AnsIndicator.textContent="Correct Answer!";
-      InnerBox.style.border="10px solid #00ff22";
-      InnerBox.style.background="#8fff9e";
-    } else {
-      AnsIndicator.textContent="Incorrect Answer :(, correct answer was: "+targetFreq.toString();
-      InnerBox.style.border="10px solid #ba0c00";
-      InnerBox.style.background="#ff6d63";
+      --accent1-muted: #524f7c;
+      --accent2-muted: #3d6b4a;
+      --accent3-muted: #576030;
+      --text-muted:    #5a8a9b;
     }
-    freqs.forEach(function(radio) {
-      radio.disabled=true;
-    });
-    SubmitNextBtn.textContent="Next";
-    SubmitNextBtn.addEventListener('click', next, {once: true});
-    return;
-  }
-
-  function next() {
-    freqs.forEach(function(radio) {
-      radio.disabled=false;
-    });
-    AnsIndicator.textContent="Submit Answer";
-    document.querySelector('input[name="freq"]:checked').checked = false;
-    SubmitNextBtn.textContent="Submit";
-    SubmitNextBtn.addEventListener('click', submit, {once: true});
-    InnerBox.style.border="10px solid #f5f5dc";
-    InnerBox.style.background="#ffffff";
-    freq=null;
-    targetFreq = freqValues.get(newFreq());
-    console.log(targetFreq);
-    return;
-  }
-  
-  SubmitNextBtn.addEventListener('click', submit, {once: true});
-  
-  function setStatus(msg, cls='') {
-    statusEl.textContent = msg;
-    statusEl.className   = 'status ' + cls;
-  }
-
-  function stopPlayback() {
-    if (audio) {
-      audio.pause();
-      audio.src = '';
-      audio = null;
+    *, *::before, *::after {
+      box-sizing: border-box;
+      font-family: 'Roboto Mono', monospace;
     }
-    PlayStopBtn.textContent = "Play";
-    PlayStopBtn.classList.remove('playing');
-    //btnPlay.textContent = '▶';
-    //btnPlay.classList.remove('playing');
-    setStatus('READY');
-  }
 
-  PlayStopBtn.addEventListener('click', async () => {
-    if (audio && !audio.paused) {
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .aspect-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 1000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      gap: 1rem;
+    }
+
+    .aspect-overlay h2 {
+      margin: 0;
+      font-size: clamp(1.1rem, 5vw, 1.6rem);
+      color: var(--accent2);
+    }
+
+    .aspect-overlay p {
+      margin: 0;
+      font-size: clamp(0.8rem, 3.5vw, 1rem);
+      color: var(--text);
+      max-width: 28ch;
+    }
+
+    @media (max-aspect-ratio: 2/3) {
+      .aspect-overlay { display: flex; }
+      .Box            { visibility: hidden; }
+    }
+
+    .Box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(95vw, 900px);
+      padding: clamp(1rem, 3vw, 2rem);
+      gap: clamp(0.5rem, 1.5vw, 0.9rem);
+      /* CHANGE 2: new border color */
+      border: 2px solid var(--accent1);
+      border-radius: 1rem;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .AnswerIndicator {
+      margin: 0;
+      font-size: clamp(0.95rem, 2.5vw, 1.3rem);
+      color: var(--text);
+      text-align: center;
+    }
+
+    .TaskDescription {
+      margin: 0;
+      font-size: clamp(0.8rem, 2vw, 1rem);
+      color: var(--accent1);
+      text-align: center;
+    }
+
+    .status {
+      margin: 0;
+      font-size: clamp(1.3rem, 3.5vw, 2rem);
+      color: var(--accent3);
+      text-align: center;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .radioList {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(0.25rem, 0.8vw, 0.55rem);
+    }
+
+    .radioLi {
+      float: none;
+    }
+
+    .radioList input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+
+    .radioList label {
+      display: inline-block;
+      padding: clamp(0.28rem, 0.8vw, 0.45rem) clamp(0.5rem, 1.3vw, 0.85rem);
+      border: 2px solid var(--accent1);
+      border-radius: 0.5rem;
+      color: var(--text);
+      cursor: pointer;
+      font-size: clamp(0.7rem, 1.7vw, 0.95rem);
+      font-weight: 500;
+      user-select: none;
+      transition: transform 0.13s ease, background 0.13s ease,
+                  color 0.13s ease, border-color 0.13s ease;
+    }
+
+    .radioList label:hover {
+      transform: scale(1.09);
+      border-color: var(--accent3);
+      color: var(--accent3);
+    }
+
+    .radioList input[type="radio"]:checked + label {
+      background: var(--accent1);
+      color: var(--bg);
+      border-color: var(--accent1);
+    }
+
+    .radioList input[type="radio"]:disabled + label {
+      border-color: var(--accent1-muted);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .radioList input[type="radio"]:disabled:checked + label {
+      background: var(--accent1-muted);
+      color: var(--bg);
+      border-color: var(--accent1-muted);
+    }
+
+    .bottom-controls {
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      gap: clamp(0.4rem, 1.5vw, 0.8rem);
+      margin-top: clamp(0.2rem, 0.8vw, 0.4rem);
+    }
+
+    .PlayStopBtn,
+    .SubmitNextBtn {
+      flex: 1;
+      padding: clamp(0.45rem, 1.3vw, 0.75rem) clamp(0.6rem, 1.8vw, 1rem);
+      border: 2px solid var(--accent2);
+      border-radius: 0.6rem;
+      background: transparent;
+      color: var(--accent2);
+      font-family: 'Roboto Mono', monospace;
+      font-size: clamp(0.8rem, 1.8vw, 1rem);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+    }
+
+    .PlayStopBtn:hover,
+    .SubmitNextBtn:hover {
+      background: var(--accent2);
+      color: var(--bg);
+    }
+
+    .PlayStopBtn:disabled,
+    .SubmitNextBtn:disabled {
+      border-color: var(--accent2-muted);
+      color: var(--accent2-muted);
+      cursor: not-allowed;
+    }
+
+    .PlayStopBtn:disabled:hover,
+    .SubmitNextBtn:disabled:hover {
+      background: transparent;
+      color: var(--accent2-muted);
+    }
+
+    .file-selector-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+    }
+
+    .file-selector {
+      width: 100%;
+      padding: clamp(0.28rem, 0.9vw, 0.45rem) clamp(0.35rem, 0.9vw, 0.55rem);
+      border: 2px solid var(--accent1);
+      border-radius: 0.5rem;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Roboto Mono', monospace;
+      font-size: clamp(0.65rem, 1.4vw, 0.82rem);
+      cursor: pointer;
+    }
+
+    .file-selector-desc {
+      margin: 0;
+      font-size: clamp(0.55rem, 1.2vw, 0.68rem);
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="aspect-overlay" id="aspectOverlay">
+    <h2>Please rotate or resize!</h2>
+    <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
+  </div>
+  <div class="Box" id="InnerBox">
+    <h2 class="AnswerIndicator" id="AnswerIndicator">Submit answer</h2>
+    <h3 class="TaskDescription">Select which band has been changed</h3>
+    <h3 class="status" id="status">READY</h3>
+    <ul class="radioList">
+      <li class="radioLi">
+        <input type="radio" id="60" name="freq" value="60Hz">
+        <label for="60">60Hz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="125" name="freq" value="125Hz">
+        <label for="125">125Hz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="250" name="freq" value="250Hz">
+        <label for="250">250Hz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="500" name="freq" value="500Hz">
+        <label for="500">500Hz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="1000" name="freq" value="1000Hz">
+        <label for="1000">1kHz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="2000" name="freq" value="2000Hz">
+        <label for="2000">2kHz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="4000" name="freq" value="4000Hz">
+        <label for="4000">4kHz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="8000" name="freq" value="8000Hz">
+        <label for="8000">8kHz</label>
+      </li>
+      <li class="radioLi">
+        <input type="radio" id="16000" name="freq" value="16000Hz">
+        <label for="16000">16kHz</label>
+      </li>
+    </ul>
+    <div class="bottom-controls">
+      <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
+      <div class="file-selector-group">
+        <select class="file-selector" id="fileSelector">
+          <option value="Gray_noise.wav" selected>Gray_noise.wav</option>
+          <option value="sample.wav">sample.wav</option>
+        </select>
+        <p class="file-selector-desc">audio source</p>
+      </div>
+      <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
+    </div>
+  </div>
+
+  <script>
+    // === STATE ===
+    let audio    = null;
+    var freq     = null;
+
+    // Frequency map: index string -> Hz number
+    let freqValues = new Map();
+    freqValues.set("0", 60);
+    freqValues.set("1", 125);
+    freqValues.set("2", 250);
+    freqValues.set("3", 500);
+    freqValues.set("4", 1000);
+    freqValues.set("5", 2000);
+    freqValues.set("6", 4000);
+    freqValues.set("7", 8000);
+    freqValues.set("8", 16000);
+
+    // === DOM REFERENCES ===
+    const AnsIndicator  = document.getElementById('AnswerIndicator');
+    const PlayStopBtn   = document.getElementById('PlayStopBtn');
+    const freqs         = document.querySelectorAll('input[name="freq"]');
+    const SubmitNextBtn = document.getElementById('SubmitNextBtn');
+    const InnerBox      = document.getElementById('InnerBox');
+    const statusEl      = document.getElementById('status');
+    const fileSelector  = document.getElementById('fileSelector');
+
+    // Pick an initial random target frequency
+    var targetFreq = freqValues.get(newFreq());
+    console.log('Target freq:', targetFreq);
+
+    // Read selected frequency from radio inputs
+    freqs.forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        freq = document.querySelector('input[name="freq"]:checked').value;
+        console.log('Selected:', freq);
+      });
+    });
+
+    function newFreq() {
+      return Math.floor(Math.random() * 9).toString();
+    }
+
+    // === SUBMIT ===
+    function submit() {
       stopPlayback();
-      return;
-    }
 
-    // Stop any leftover audio
-    stopPlayback();
-
-    setStatus('PROCESSING…', 'loading');
-    PlayStopBtn.disabled = true;
-
-    try {
-      // Fetch the EQ-processed audio from Django
-      const selectedFile = fileSelector.value;
-      const url = `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
-      const resp = await fetch(url);
-
-      if (!resp.ok) {
-        const err = await resp.text();
-        throw new Error(err);
+      if (freq == null) {
+        // Warning – yellow
+        AnsIndicator.textContent   = "You must select a frequency before submitting.";
+        AnsIndicator.style.color   = "";              // keep default text color
+        InnerBox.style.borderColor = "#d4b800";
+        InnerBox.style.background  = "rgba(212,184,0,0.10)";
+        SubmitNextBtn.addEventListener('click', submit, { once: true });
+        return;
       }
 
-      const blob = await resp.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      if (freq == targetFreq.toString() + "Hz") {
+        //Correct – green
+        AnsIndicator.textContent   = "Correct Answer!";
+        AnsIndicator.style.color   = "#81F495";       
+        InnerBox.style.borderColor = "#81F495";
+        InnerBox.style.background  = "rgba(129,244,149,0.10)";
+        statusEl.style.color       = "#81F495";
+      } else {
+        //Wrong - red
+        AnsIndicator.textContent   = "Incorrect Answer :(";
+        AnsIndicator.style.color   = "#EB9486";       
+        InnerBox.style.borderColor = "#FF6F59";       
+        InnerBox.style.background  = "rgba(255,111,89,0.10)";
+        statusEl.style.color       = "#EB9486";       
+      }
 
-      audio = new Audio(blobUrl);
+      //Disable radios
+      freqs.forEach(function(radio) { radio.disabled = true; });
 
-      audio.addEventListener('ended', stopPlayback);
-      audio.addEventListener('error', () => {
-        setStatus('PLAYBACK ERROR', 'error');
-        stopPlayback();
-      });
-
-      await audio.play();
-
-      PlayStopBtn.textContent = "Stop";
-      PlayStopBtn.classList.add('playing');
-      setStatus('PLAYING');
-    } catch (err) {
-      setStatus('ERROR: ' + err.message, 'error');
-      stopPlayback();
-    } finally {
-      PlayStopBtn.disabled = false;
+      SubmitNextBtn.textContent = "Next";
+      SubmitNextBtn.addEventListener('click', next, { once: true });
     }
-  });
 
-</script>
+    function next() {
+      // Re-enable radios
+      freqs.forEach(function(radio) { radio.disabled = false; });
+      // Reset answer indicator
+      AnsIndicator.textContent = "Submit Answer";
+      AnsIndicator.style.color = "";               // back to CSS default
+      // Uncheck any selected radio
+      const checked = document.querySelector('input[name="freq"]:checked');
+      if (checked) checked.checked = false;
+      // Reset button label
+      SubmitNextBtn.textContent = "Submit";
+      SubmitNextBtn.addEventListener('click', submit, { once: true });
+      // CHANGE 9: Reset box border/bg to CSS defaults
+      InnerBox.style.borderColor = "";
+      InnerBox.style.background  = "";
+      // Reset status color to default (var(--accent3))
+      statusEl.style.color = "";
+      freq       = null;
+      targetFreq = freqValues.get(newFreq());
+    }
+
+    // Attach initial submit listener
+    SubmitNextBtn.addEventListener('click', submit, { once: true });
+
+    // === STATUS HELPER ===
+    function setStatus(msg, cls = '') {
+      statusEl.textContent = msg;
+      // Preserve any inline color override; only touch className
+      statusEl.className   = 'status ' + cls;
+    }
+
+    // === STOP PLAYBACK ===
+    function stopPlayback() {
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+        audio = null;
+      }
+      PlayStopBtn.textContent = "Play";
+      PlayStopBtn.classList.remove('playing');
+      setStatus('READY');
+    }
+
+    // === PLAY / STOP ===
+    PlayStopBtn.addEventListener('click', async () => {
+      if (audio && !audio.paused) {
+        stopPlayback();
+        return;
+      }
+
+      stopPlayback();
+      setStatus('PROCESSING…', 'loading');
+      PlayStopBtn.disabled = true;
+
+      try {
+        // Fetch EQ-processed audio from Django backend
+        const selectedFile = fileSelector.value;
+        const url          = `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
+        const resp         = await fetch(url);
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          throw new Error(err);
+        }
+
+        const blob    = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        audio = new Audio(blobUrl);
+        audio.addEventListener('ended', stopPlayback);
+        audio.addEventListener('error', () => {
+          setStatus('PLAYBACK ERROR', 'error');
+          stopPlayback();
+        });
+
+        await audio.play();
+
+        PlayStopBtn.textContent = "Stop";
+        PlayStopBtn.classList.add('playing');
+        setStatus('PLAYING');
+      } catch (err) {
+        setStatus('ERROR: ' + err.message, 'error');
+        stopPlayback();
+      } finally {
+        PlayStopBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
