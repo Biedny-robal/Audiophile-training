@@ -1,0 +1,43 @@
+/* static/css/base.css */
+
+:root {
+  --bg:            #7A306C;
+  --text:          #A9E4EF;
+  --accent1:       #8E8DBE;
+  --accent2:       #81F495;
+  --accent3:       #96F550;
+  --wrong-light:   #EB9486;
+  --wrong-hard:    #FF6F59;
+
+  --accent1-muted: #524f7c;
+  --accent2-muted: #3d6b4a;
+  --accent3-muted: #576030;
+  --text-muted:    #5a8a9b;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  font-family: 'Roboto Mono', monospace;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wspólny styl dla kontenera .Box, który pojawia się w obu plikach */
+.Box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 2px solid var(--accent1);
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.18);
+}

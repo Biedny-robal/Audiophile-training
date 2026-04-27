@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,237 +8,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
   <title>EQ Trainer</title>
-  <style>
-    :root {
-      --bg:            #7A306C;  /* page background                            */
-      --text:          #A9E4EF;  /* primary text color                         */
-      --accent1:       #8E8DBE;  /* radio button borders / box border          */
-      --accent2:       #81F495;  /* main button (Play/Stop, Submit/Next)       */
-      --accent3:       #96F550;  /* hover highlight, status text               */
-      --wrong-light:   #EB9486;  /* wrong answer – softer red (text)           */
-      --wrong-hard:    #FF6F59;  /* wrong answer – stronger red (border)       */
-
-      --accent1-muted: #524f7c;
-      --accent2-muted: #3d6b4a;
-      --accent3-muted: #576030;
-      --text-muted:    #5a8a9b;
-    }
-    *, *::before, *::after {
-      box-sizing: border-box;
-      font-family: 'Roboto Mono', monospace;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .aspect-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      z-index: 1000;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 2rem;
-      gap: 1rem;
-    }
-
-    .aspect-overlay h2 {
-      margin: 0;
-      font-size: clamp(1.1rem, 5vw, 1.6rem);
-      color: var(--accent2);
-    }
-
-    .aspect-overlay p {
-      margin: 0;
-      font-size: clamp(0.8rem, 3.5vw, 1rem);
-      color: var(--text);
-      max-width: 28ch;
-    }
-
-    @media (max-aspect-ratio: 2/3) {
-      .aspect-overlay { display: flex; }
-      .Box            { visibility: hidden; }
-    }
-
-    .Box {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: min(95vw, 900px);
-      padding: clamp(1rem, 3vw, 2rem);
-      gap: clamp(0.5rem, 1.5vw, 0.9rem);
-      /* CHANGE 2: new border color */
-      border: 2px solid var(--accent1);
-      border-radius: 1rem;
-      background: rgba(0, 0, 0, 0.18);
-    }
-
-    .AnswerIndicator {
-      margin: 0;
-      font-size: clamp(0.95rem, 2.5vw, 1.3rem);
-      color: var(--text);
-      text-align: center;
-    }
-
-    .TaskDescription {
-      margin: 0;
-      font-size: clamp(0.8rem, 2vw, 1rem);
-      color: var(--accent1);
-      text-align: center;
-    }
-
-    .status {
-      margin: 0;
-      font-size: clamp(1.3rem, 3.5vw, 2rem);
-      color: var(--accent3);
-      text-align: center;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    .radioList {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: clamp(0.25rem, 0.8vw, 0.55rem);
-    }
-
-    .radioLi {
-      float: none;
-    }
-
-    .radioList input[type="radio"] {
-      position: absolute;
-      opacity: 0;
-      width: 0;
-      height: 0;
-      pointer-events: none;
-    }
-
-    .radioList label {
-      display: inline-block;
-      padding: clamp(0.28rem, 0.8vw, 0.45rem) clamp(0.5rem, 1.3vw, 0.85rem);
-      border: 2px solid var(--accent1);
-      border-radius: 0.5rem;
-      color: var(--text);
-      cursor: pointer;
-      font-size: clamp(0.7rem, 1.7vw, 0.95rem);
-      font-weight: 500;
-      user-select: none;
-      transition: transform 0.13s ease, background 0.13s ease,
-                  color 0.13s ease, border-color 0.13s ease;
-    }
-
-    .radioList label:hover {
-      transform: scale(1.09);
-      border-color: var(--accent3);
-      color: var(--accent3);
-    }
-
-    .radioList input[type="radio"]:checked + label {
-      background: var(--accent1);
-      color: var(--bg);
-      border-color: var(--accent1);
-    }
-
-    .radioList input[type="radio"]:disabled + label {
-      border-color: var(--accent1-muted);
-      color: var(--text-muted);
-      cursor: not-allowed;
-      transform: none !important;
-    }
-
-    .radioList input[type="radio"]:disabled:checked + label {
-      background: var(--accent1-muted);
-      color: var(--bg);
-      border-color: var(--accent1-muted);
-    }
-
-    .bottom-controls {
-      display: flex;
-      align-items: stretch;
-      width: 100%;
-      gap: clamp(0.4rem, 1.5vw, 0.8rem);
-      margin-top: clamp(0.2rem, 0.8vw, 0.4rem);
-    }
-
-    .PlayStopBtn,
-    .SubmitNextBtn {
-      flex: 1;
-      padding: clamp(0.45rem, 1.3vw, 0.75rem) clamp(0.6rem, 1.8vw, 1rem);
-      border: 2px solid var(--accent2);
-      border-radius: 0.6rem;
-      background: transparent;
-      color: var(--accent2);
-      font-family: 'Roboto Mono', monospace;
-      font-size: clamp(0.8rem, 1.8vw, 1rem);
-      font-weight: 700;
-      cursor: pointer;
-      transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
-    }
-
-    .PlayStopBtn:hover,
-    .SubmitNextBtn:hover {
-      background: var(--accent2);
-      color: var(--bg);
-    }
-
-    .PlayStopBtn:disabled,
-    .SubmitNextBtn:disabled {
-      border-color: var(--accent2-muted);
-      color: var(--accent2-muted);
-      cursor: not-allowed;
-    }
-
-    .PlayStopBtn:disabled:hover,
-    .SubmitNextBtn:disabled:hover {
-      background: transparent;
-      color: var(--accent2-muted);
-    }
-
-    .file-selector-group {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.3rem;
-    }
-
-    .file-selector {
-      width: 100%;
-      padding: clamp(0.28rem, 0.9vw, 0.45rem) clamp(0.35rem, 0.9vw, 0.55rem);
-      border: 2px solid var(--accent1);
-      border-radius: 0.5rem;
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Roboto Mono', monospace;
-      font-size: clamp(0.65rem, 1.4vw, 0.82rem);
-      cursor: pointer;
-    }
-
-    .file-selector-desc {
-      margin: 0;
-      font-size: clamp(0.55rem, 1.2vw, 0.68rem);
-      color: var(--text-muted);
-      text-align: center;
-    }
-  </style>
+  <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
 </head>
 <body>
   <div class="aspect-overlay" id="aspectOverlay">
@@ -358,17 +130,17 @@
       if (freq == targetFreq.toString() + "Hz") {
         //Correct – green
         AnsIndicator.textContent   = "Correct Answer!";
-        AnsIndicator.style.color   = "#81F495";       
-        InnerBox.style.borderColor = "#81F495";
+        AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency 
+        InnerBox.style.borderColor = "var(--accent2)";
         InnerBox.style.background  = "rgba(129,244,149,0.10)";
-        statusEl.style.color       = "#81F495";
+        statusEl.style.color       = "var(--accent2)";
       } else {
         //Wrong - red
         AnsIndicator.textContent   = "Incorrect Answer :(, the correct frequency was: "+targetFreq+"Hz";
-        AnsIndicator.style.color   = "#EB9486";       
-        InnerBox.style.borderColor = "#FF6F59";       
+        AnsIndicator.style.color   = "var(--wrong-light)";       
+        InnerBox.style.borderColor = "var(--wrong-hard)";       
         InnerBox.style.background  = "rgba(255,111,89,0.10)";
-        statusEl.style.color       = "#EB9486";       
+        statusEl.style.color       = "var(--wrong-light)";       
       }
 
       //Disable radios
