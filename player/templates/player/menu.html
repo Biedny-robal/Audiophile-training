@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <title>EQ Trainer — Menu</title>
+  <style>
+    :root {
+      --bg:            #7A306C;
+      --text:          #A9E4EF;
+      --accent1:       #8E8DBE;
+      --accent2:       #81F495;
+      --accent3:       #96F550;
+      --wrong-light:   #EB9486;
+      --wrong-hard:    #FF6F59;
+      --accent1-muted: #524f7c;
+      --accent2-muted: #3d6b4a;
+      --accent3-muted: #576030;
+      --text-muted:    #5a8a9b;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .Box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(95vw, 680px);
+      padding: clamp(1.2rem, 3vw, 2.2rem);
+      gap: clamp(0.6rem, 1.8vw, 1.1rem);
+      border: 2px solid var(--accent1);
+      border-radius: 1rem;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      color: var(--accent3);
+      text-align: center;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: clamp(0.72rem, 1.8vw, 0.9rem);
+      color: var(--accent1);
+      text-align: center;
+      letter-spacing: 0.06em;
+    }
+
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--accent1-muted);
+      border: none;
+      margin: 0.2rem 0;
+    }
+
+    .mode-label {
+      margin: 0;
+      font-size: clamp(0.6rem, 1.3vw, 0.72rem);
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+
+    .modes-grid {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: clamp(0.4rem, 1.2vw, 0.65rem);
+    }
+
+    .mode-card {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      width: 100%;
+      padding: clamp(0.7rem, 1.8vw, 1rem) clamp(0.8rem, 2vw, 1.2rem);
+      border: 2px solid var(--accent1);
+      border-radius: 0.65rem;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-decoration: none;
+      gap: 1rem;
+      transition: border-color 0.14s ease, background 0.14s ease, transform 0.12s ease;
+    }
+
+    .mode-card:hover {
+      border-color: var(--accent2);
+      background: rgba(129, 244, 149, 0.07);
+      transform: translateX(4px);
+    }
+
+    .mode-card.coming-soon {
+      border-color: var(--accent1-muted);
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .mode-card.coming-soon:hover {
+      border-color: var(--accent1-muted);
+      background: transparent;
+      transform: none;
+    }
+
+    .mode-icon {
+      font-size: clamp(1.3rem, 3vw, 1.7rem);
+      flex-shrink: 0;
+      width: 2rem;
+      text-align: center;
+      /* using text chars instead of emoji for retro feel */
+      color: var(--accent2);
+      font-weight: 700;
+    }
+
+    .mode-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.18rem;
+      flex: 1;
+      text-align: left;
+    }
+
+    .mode-name {
+      font-size: clamp(0.82rem, 2vw, 1rem);
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.04em;
+    }
+
+    .mode-desc {
+      font-size: clamp(0.62rem, 1.4vw, 0.75rem);
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .mode-badge {
+      font-size: clamp(0.55rem, 1.1vw, 0.65rem);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.3rem;
+      flex-shrink: 0;
+    }
+
+    .badge-ready {
+      background: rgba(129, 244, 149, 0.14);
+      color: var(--accent2);
+      border: 1px solid var(--accent2-muted);
+    }
+
+    .badge-soon {
+      background: rgba(142, 141, 190, 0.12);
+      color: var(--accent1);
+      border: 1px solid var(--accent1-muted);
+    }
+
+    .mode-arrow {
+      color: var(--accent2);
+      font-size: 1rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.14s ease;
+    }
+
+    .mode-card:hover .mode-arrow {
+      opacity: 1;
+    }
+
+    .mode-card.coming-soon .mode-arrow {
+      display: none;
+    }
+
+    .footer-text {
+      margin: 0;
+      font-size: clamp(0.55rem, 1.2vw, 0.65rem);
+      color: var(--text-muted);
+      text-align: center;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+  <div class="Box">
+    <h1 class="title">EQ Trainer</h1>
+    <p class="subtitle">Critical Listening Training Suite</p>
+
+    <hr class="divider">
+
+    <p class="mode-label">// select game mode</p>
+
+    <div class="modes-grid">
+
+      <a href="/eq-trainer/" class="mode-card">
+        <span class="mode-icon">#</span>
+        <div class="mode-info">
+          <span class="mode-name">Frequency Identification</span>
+          <span class="mode-desc">Hear an EQ boost — identify which band was changed</span>
+        </div>
+        <span class="mode-badge badge-ready">Ready</span>
+        <span class="mode-arrow">→</span>
+      </a>
+
+      <div class="mode-card coming-soon">
+        <span class="mode-icon">~</span>
+        <div class="mode-info">
+          <span class="mode-name">Loudness AB Test</span>
+          <span class="mode-desc">Compare two clips — identify which is louder</span>
+        </div>
+        <span class="mode-badge badge-soon">Soon</span>
+      </div>
+
+      <div class="mode-card coming-soon">
+        <span class="mode-icon">≠</span>
+        <div class="mode-info">
+          <span class="mode-name">Frequency Response AB Test</span>
+          <span class="mode-desc">Compare two EQ curves — identify which sounds worse</span>
+        </div>
+        <span class="mode-badge badge-soon">Soon</span>
+      </div>
+
+      <div class="mode-card coming-soon">
+        <span class="mode-icon">◎</span>
+        <div class="mode-info">
+          <span class="mode-name">Spatial Audio</span>
+          <span class="mode-desc">Identify the direction a sound is coming from</span>
+        </div>
+        <span class="mode-badge badge-soon">Soon</span>
+      </div>
+
+      <div class="mode-card coming-soon">
+        <span class="mode-icon">Δ</span>
+        <div class="mode-info">
+          <span class="mode-name">Loudness Delta — Electronic Boogaloo</span>
+          <span class="mode-desc">Hear two clips — estimate the dB difference between them</span>
+        </div>
+        <span class="mode-badge badge-soon">Soon</span>
+      </div>
+
+    </div>
+
+    <hr class="divider">
+    <p class="footer-text">more modes coming soon</p>
+  </div>
+</body>
+</html>

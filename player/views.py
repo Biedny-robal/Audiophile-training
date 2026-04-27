@@ -9,8 +9,13 @@ from django.conf import settings
 AUDIO_DIR = os.path.join(settings.BASE_DIR, 'audio')
 
 
+def menu(request):
+    """Render the main menu page."""
+    return render(request, 'player/menu.html')
+
+
 def index(request):
-    """Render the main player page."""
+    """Render the EQ trainer game page."""
     return render(request, 'player/index.html')
 
 
@@ -41,7 +46,7 @@ def serve_audio(request):
     if not os.path.exists(AUDIO_FILE):
         raise Http404(f"{audio_filename} not found in audio directory.")
 
-    # Read and clamp the requested bass gain
+    # Read the requested centre frequency
     try:
         freq = int(request.GET.get('freq', 0))
     except (ValueError, TypeError):
