@@ -1,0 +1,228 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <title>Band trainer</title>
+  <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
+</head>
+<body>
+  <div class="aspect-overlay" id="aspectOverlay">
+    <h2>Please rotate or resize!</h2>
+    <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
+  </div>
+
+  <div class="Box" id="InnerBox">
+    <h2 class="AnswerIndicator" id="AnswerIndicator">Submit answer</h2>
+    <h3 class="TaskDescription">Select which sample sounds better</h3>
+    <h3 class="status" id="status">READY</h3>
+        <ul class="radioList">
+        <li class="radioLi">
+            <input type="radio" id="X" name="freq" value="">
+            <label for="X">X</label>
+        </li>
+        <li class="radioLi">
+            <input type="radio" id="A" name="freq" value="">
+            <label for="A">A</label>
+        </li>
+        <li class="radioLi">
+            <input type="radio" id="B" name="freq" value="16000Hz">
+            <label for="B">B</label>
+        </li>
+        </ul>
+
+    <div class="bottom-controls">
+      <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
+      <div class="file-selector-group">
+        <select class="file-selector" id="fileSelector">
+          <option value="Gray_noise.wav" selected>Gray_noise.wav</option>
+          <option value="sample.wav">sample.wav</option>
+        </select>
+        <p class="file-selector-desc">audio source</p>
+      </div>
+      <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
+    </div>
+  </div>
+
+  <script>
+    // Bandpass filter
+    function BandpassFilter (bandpass = "") {
+     
+    }
+
+
+
+
+    // === STATE ===
+    let audio    = null;
+    var freq     = null;
+
+    // Frequency map: index string -> Hz number
+    let freqValues = new Map();
+    freqValues.set("0", 60);
+    freqValues.set("1", 125);
+    freqValues.set("2", 250);
+    freqValues.set("3", 500);
+    freqValues.set("4", 1000);
+    freqValues.set("5", 2000);
+    freqValues.set("6", 4000);
+    freqValues.set("7", 8000);
+    freqValues.set("8", 16000);
+
+    // === DOM REFERENCES ===
+    const AnsIndicator  = document.getElementById('AnswerIndicator');
+    const PlayStopBtn   = document.getElementById('PlayStopBtn');
+    const freqs         = document.querySelectorAll('input[name="freq"]');
+    const SubmitNextBtn = document.getElementById('SubmitNextBtn');
+    const InnerBox      = document.getElementById('InnerBox');
+    const statusEl      = document.getElementById('status');
+    const fileSelector  = document.getElementById('fileSelector');
+
+    // Pick an initial random target frequency
+    var targetFreq = freqValues.get(newFreq());
+    console.log('Target freq:', targetFreq);
+
+    // Read selected frequency from radio inputs
+    freqs.forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        freq = document.querySelector('input[name="freq"]:checked').value;
+        console.log('Selected:', freq);
+      });
+    });
+
+    function newFreq() {
+      return Math.floor(Math.random() * 9).toString();
+    }
+
+    // === SUBMIT ===
+    function submit() {
+      stopPlayback();
+
+      if (freq == null) {
+        // Warning – yellow
+        AnsIndicator.textContent   = "You must select a frequency before submitting.";
+        AnsIndicator.style.color   = "";              // keep default text color
+        InnerBox.style.borderColor = "#d4b800";
+        InnerBox.style.background  = "rgba(212,184,0,0.10)";
+        SubmitNextBtn.addEventListener('click', submit, { once: true });
+        return;
+      }
+
+      if (freq == targetFreq.toString() + "Hz") {
+        //Correct – green
+        AnsIndicator.textContent   = "Correct Answer!";
+        AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency 
+        InnerBox.style.borderColor = "var(--accent2)";
+        InnerBox.style.background  = "rgba(129,244,149,0.10)";
+        statusEl.style.color       = "var(--accent2)";
+      } else {
+        //Wrong - red
+        AnsIndicator.textContent   = "Incorrect Answer :(, the correct frequency was: "+targetFreq+"Hz";
+        AnsIndicator.style.color   = "var(--wrong-light)";       
+        InnerBox.style.borderColor = "var(--wrong-hard)";       
+        InnerBox.style.background  = "rgba(255,111,89,0.10)";
+        statusEl.style.color       = "var(--wrong-light)";       
+      }
+
+      //Disable radios
+      freqs.forEach(function(radio) { radio.disabled = true; });
+
+      SubmitNextBtn.textContent = "Next";
+      SubmitNextBtn.addEventListener('click', next, { once: true });
+    }
+
+    function next() {
+      // Re-enable radios
+      freqs.forEach(function(radio) { radio.disabled = false; });
+      // Reset answer indicator
+      AnsIndicator.textContent = "Submit Answer";
+      AnsIndicator.style.color = "";               // back to CSS default
+      // Uncheck any selected radio
+      const checked = document.querySelector('input[name="freq"]:checked');
+      if (checked) checked.checked = false;
+      // Reset button label
+      SubmitNextBtn.textContent = "Submit";
+      SubmitNextBtn.addEventListener('click', submit, { once: true });
+      // CHANGE 9: Reset box border/bg to CSS defaults
+      InnerBox.style.borderColor = "";
+      InnerBox.style.background  = "";
+      // Reset status color to default (var(--accent3))
+      statusEl.style.color = "";
+      freq       = null;
+      targetFreq = freqValues.get(newFreq());
+    }
+
+    // Attach initial submit listener
+    SubmitNextBtn.addEventListener('click', submit, { once: true });
+
+    // === STATUS HELPER ===
+    function setStatus(msg, cls = '') {
+      statusEl.textContent = msg;
+      // Preserve any inline color override; only touch className
+      statusEl.className   = 'status ' + cls;
+    }
+
+    // === STOP PLAYBACK ===
+    function stopPlayback() {
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+        audio = null;
+      }
+      PlayStopBtn.textContent = "Play";
+      PlayStopBtn.classList.remove('playing');
+      setStatus('READY');
+    }
+
+    // === PLAY / STOP ===
+    PlayStopBtn.addEventListener('click', async () => {
+      if (audio && !audio.paused) {
+        stopPlayback();
+        return;
+      }
+
+      stopPlayback();
+      setStatus('PROCESSING…', 'loading');
+      PlayStopBtn.disabled = true;
+
+      try {
+        // Fetch EQ-processed audio from Django backend
+        const selectedFile = fileSelector.value;
+        const url          = `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
+        const resp         = await fetch(url);
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          throw new Error(err);
+        }
+
+        const blob    = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        audio = new Audio(blobUrl);
+        audio.addEventListener('ended', stopPlayback);
+        audio.addEventListener('error', () => {
+          setStatus('PLAYBACK ERROR', 'error');
+          stopPlayback();
+        });
+
+        await audio.play();
+
+        PlayStopBtn.textContent = "Stop";
+        PlayStopBtn.classList.add('playing');
+        setStatus('PLAYING');
+      } catch (err) {
+        setStatus('ERROR: ' + err.message, 'error');
+        stopPlayback();
+      } finally {
+        PlayStopBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

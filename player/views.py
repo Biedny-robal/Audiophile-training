@@ -18,6 +18,9 @@ def index(request):
     """Render the EQ trainer game page."""
     return render(request, 'player/index.html')
 
+def bandwidth(request):
+    return render(request, 'player/bandwidth.html')
+
 
 def serve_audio(request):
     """
