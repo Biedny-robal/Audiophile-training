@@ -4,6 +4,7 @@ import os
 from django.shortcuts import render
 from django.http import HttpResponse, Http404
 from django.conf import settings
+from django.views.decorators.http import require_GET
 
 # Path to the audio files directory
 AUDIO_DIR = os.path.join(settings.BASE_DIR, 'audio')
@@ -17,10 +18,6 @@ def menu(request):
 def index(request):
     """Render the EQ trainer game page."""
     return render(request, 'player/index.html')
-
-def bandwidth(request):
-    return render(request, 'player/bandwidth.html')
-
 
 def serve_audio(request):
     """
@@ -96,3 +93,26 @@ def serve_audio(request):
             os.remove(tmp_path)
 
     return HttpResponse(audio_data, content_type='audio/wav')
+
+@require_GET
+def serve_bandwidth_audio(request):
+    if not request.GET.get('file'):
+        return render(request, 'player/bandwidth.html')
+    audio_filename = request.GET.get('file', 'Gray_noise.wav')
+
+    if '..' in audio_filename or '/' in audio_filename or '\\' in audio_filename:
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+    AUDIO_FILE = os.path.join(AUDIO_DIR, audio_filename)
+    
+    if audio_filename.endswith('.wav'):
+        content_type = 'audio/wav'
+    else:
+        content_type = 'audio/mpeg'
+    # Ensure the file is within the audio directory
+    if not os.path.abspath(AUDIO_FILE).startswith(os.path.abspath(AUDIO_DIR)):
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+    
+    if not os.path.exists(AUDIO_FILE):
+        raise Http404(f"{audio_filename} not found in audio directory.")
+    # Band cutoff is done in frontend
+    return HttpResponse(open(AUDIO_FILE, 'rb').read(), content_type=content_type)

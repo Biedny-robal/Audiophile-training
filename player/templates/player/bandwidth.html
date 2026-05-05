@@ -18,22 +18,22 @@
   </div>
 
   <div class="Box" id="InnerBox">
-    <h2 class="AnswerIndicator" id="AnswerIndicator">Submit answer</h2>
+    <h2 class="AnswerIndicator" id="AnswerIndicator">Bandwidth hearing test</h2>
     <h3 class="TaskDescription">Select which sample sounds better</h3>
     <h3 class="status" id="status">READY</h3>
         <ul class="radioList">
-        <li class="radioLi">
-            <input type="radio" id="X" name="freq" value="">
-            <label for="X">X</label>
-        </li>
-        <li class="radioLi">
-            <input type="radio" id="A" name="freq" value="">
-            <label for="A">A</label>
-        </li>
-        <li class="radioLi">
-            <input type="radio" id="B" name="freq" value="16000Hz">
-            <label for="B">B</label>
-        </li>
+            <li class="radioLi">
+                <input type="radio" id="X" name="X" value="ref">
+                <label for="X">X</label>
+            </li>
+            <li class="radioLi">
+                <input type="radio" id="A" name="A" value="">
+                <label for="A">A</label>
+            </li>
+            <li class="radioLi">
+                <input type="radio" id="B" name="B" value="">
+                <label for="B">B</label>
+            </li>
         </ul>
 
     <div class="bottom-controls">
@@ -45,67 +45,80 @@
         </select>
         <p class="file-selector-desc">audio source</p>
       </div>
-      <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
+      <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit answer</button>
     </div>
   </div>
 
   <script>
-    // Bandpass filter
-    function BandpassFilter (bandpass = "") {
-     
-    }
-
-
-
-
-    // === STATE ===
-    let audio    = null;
-    var freq     = null;
-
-    // Frequency map: index string -> Hz number
-    let freqValues = new Map();
-    freqValues.set("0", 60);
-    freqValues.set("1", 125);
-    freqValues.set("2", 250);
-    freqValues.set("3", 500);
-    freqValues.set("4", 1000);
-    freqValues.set("5", 2000);
-    freqValues.set("6", 4000);
-    freqValues.set("7", 8000);
-    freqValues.set("8", 16000);
-
     // === DOM REFERENCES ===
     const AnsIndicator  = document.getElementById('AnswerIndicator');
     const PlayStopBtn   = document.getElementById('PlayStopBtn');
-    const freqs         = document.querySelectorAll('input[name="freq"]');
+    const XAB           = document.getElemntByType('radio');
     const SubmitNextBtn = document.getElementById('SubmitNextBtn');
     const InnerBox      = document.getElementById('InnerBox');
     const statusEl      = document.getElementById('status');
     const fileSelector  = document.getElementById('fileSelector');
 
-    // Pick an initial random target frequency
-    var targetFreq = freqValues.get(newFreq());
-    console.log('Target freq:', targetFreq);
+    let audioCtx;
+    let audioBuffer = null;
+    let audioBufferRef = null;
+    let currentSource = null;
+    
+    const bandfilterPairs = [(0,44000),(50, 18000),(70, 16000),(90,14000),(110,12000),(140,10000),(200,8000),(250,6500)]; // pary dla filtra z OJD lab 1
 
-    // Read selected frequency from radio inputs
-    freqs.forEach(function(radio) {
-      radio.addEventListener('change', function() {
-        freq = document.querySelector('input[name="freq"]:checked').value;
-        console.log('Selected:', freq);
-      });
-    });
+    // Load audio from Django once per selector change
+    async function loadAudioFile(filename) {
+        if (!audioCtx) {
+            audioCtx = new AudioContext();
+        }
+        if (currentSource){
+            currentSource.stop();
+        }
 
-    function newFreq() {
-      return Math.floor(Math.random() * 9).toString();
+        const url = `/audio/?file=${encodeURIComponent(filename)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Failed to load audio: ' + resp.statusText);
+        const arrayBuffer = await resp.arrayBuffer();
+        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        audioBufferRef = audioBuffer;
+    }   
+
+        fileSelector.addEventListener('change', (e) => {
+            loadAudioFile(e.target.value).catch(err => {
+                setStatus('ERROR: ' + err.message, 'error');
+            });
+        });
+    
+        // Initial load
+        loadAudioFile(fileSelector.value).catch(err => {
+            setStatus('ERROR: ' + err.message, 'error');
+        });
+
+    function CreateNewBandwidthTest() {
+        if (!audioBuffer) {
+            setStatus('Audio not loaded yet, please wait...', 'error');
+            return;
+        }
+        // Randomly select a bandwidth from the pairs
+        const randomIndex = Math.floor(Math.random() * bandfilterPairs.length);
+        const [lowFreq, highFreq] = bandfilterPairs[randomIndex];
+        
+        const source = audioCtx.createBufferSource(buffer=audioBuffer);
+        const bandpass = audioCtx.createBiquadFilter(type='bandpass', frequency=(lowFreq + highFreq) / 2, Q=(highFreq - lowFreq) / (lowFreq + highFreq)); // https://developer.mozilla.org/en-US/docs/Web/API/BiquadFilterNode
+        source.connect(bandpass).connect(audioCtx.destination);
+    }
+    
+    function playSample(){
+
     }
 
     // === SUBMIT ===
     function submit() {
       stopPlayback();
 
-      if (freq == null) {
+      if (XAB == null) {
         // Warning – yellow
-        AnsIndicator.textContent   = "You must select a frequency before submitting.";
+        AnsIndicator.textContent   = "You must select an answer before submitting.";
         AnsIndicator.style.color   = "";              // keep default text color
         InnerBox.style.borderColor = "#d4b800";
         InnerBox.style.background  = "rgba(212,184,0,0.10)";
@@ -113,7 +126,7 @@
         return;
       }
 
-      if (freq == targetFreq.toString() + "Hz") {
+      if (XAB  == targetFreq.toString() + "Hz") {
         //Correct – green
         AnsIndicator.textContent   = "Correct Answer!";
         AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency 
@@ -130,7 +143,7 @@
       }
 
       //Disable radios
-      freqs.forEach(function(radio) { radio.disabled = true; });
+      XAB.forEach(function(radio) { radio.disabled = true; });
 
       SubmitNextBtn.textContent = "Next";
       SubmitNextBtn.addEventListener('click', next, { once: true });
@@ -138,7 +151,7 @@
 
     function next() {
       // Re-enable radios
-      freqs.forEach(function(radio) { radio.disabled = false; });
+      XAB.forEach(function(radio) { radio.disabled = false; });
       // Reset answer indicator
       AnsIndicator.textContent = "Submit Answer";
       AnsIndicator.style.color = "";               // back to CSS default
@@ -153,8 +166,7 @@
       InnerBox.style.background  = "";
       // Reset status color to default (var(--accent3))
       statusEl.style.color = "";
-      freq       = null;
-      targetFreq = freqValues.get(newFreq());
+      XAB = null;
     }
 
     // Attach initial submit listener
@@ -181,47 +193,13 @@
 
     // === PLAY / STOP ===
     PlayStopBtn.addEventListener('click', async () => {
-      if (audio && !audio.paused) {
-        stopPlayback();
-        return;
-      }
-
-      stopPlayback();
-      setStatus('PROCESSING…', 'loading');
-      PlayStopBtn.disabled = true;
-
-      try {
-        // Fetch EQ-processed audio from Django backend
-        const selectedFile = fileSelector.value;
-        const url          = `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
-        const resp         = await fetch(url);
-
-        if (!resp.ok) {
-          const err = await resp.text();
-          throw new Error(err);
+      if (currentSource){
+            currentSource.stop();
         }
-
-        const blob    = await resp.blob();
-        const blobUrl = URL.createObjectURL(blob);
-
-        audio = new Audio(blobUrl);
-        audio.addEventListener('ended', stopPlayback);
-        audio.addEventListener('error', () => {
-          setStatus('PLAYBACK ERROR', 'error');
-          stopPlayback();
-        });
-
-        await audio.play();
-
-        PlayStopBtn.textContent = "Stop";
-        PlayStopBtn.classList.add('playing');
-        setStatus('PLAYING');
-      } catch (err) {
-        setStatus('ERROR: ' + err.message, 'error');
-        stopPlayback();
-      } finally {
-        PlayStopBtn.disabled = false;
-      }
+        if (!audioBuffer) {
+            setStatus('Audio not loaded yet, please wait...', 'error');
+            return;
+        }
     });
   </script>
 </body>
