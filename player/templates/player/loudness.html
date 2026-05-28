@@ -1,0 +1,230 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <title>Loudness AB Trainer</title>
+
+  <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
+</head>
+
+<body>
+
+<div class="Box" id="InnerBox">
+
+  <h2 class="AnswerIndicator" id="AnswerIndicator">
+    Which sound is louder?
+  </h2>
+
+  <h3 class="status" id="status">READY</h3>
+
+  <div class="bottom-controls">
+
+    <button id="PlayABtn" class="PlayStopBtn">
+      Play A
+    </button>
+
+    <button id="PlayBBtn" class="PlayStopBtn">
+      Play B
+    </button>
+
+    <div class="file-selector-group">
+      <select class="file-selector" id="fileSelector">
+        <option value="Gray_noise.wav" selected>Gray_noise.wav</option>
+        <option value="sample.wav">sample.wav</option>
+      </select>
+      <p class="file-selector-desc">audio source</p>
+    </div>
+
+  </div>
+
+  <ul class="radioList">
+
+    <li class="radioLi">
+      <input type="radio" id="A" name="answer" value="A">
+      <label for="A">A is louder</label>
+    </li>
+
+    <li class="radioLi">
+      <input type="radio" id="B" name="answer" value="B">
+      <label for="B">B is louder</label>
+    </li>
+
+  </ul>
+
+  <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">
+    Submit
+  </button>
+
+</div>
+
+<script>
+
+let audio = null;
+let louderVersion = null;
+let gainDb = null;
+
+const gainLevels = [0.5, 1, 2, 3, 5, 8];
+
+const AnswerIndicator = document.getElementById("AnswerIndicator");
+const SubmitNextBtn   = document.getElementById("SubmitNextBtn");
+const InnerBox        = document.getElementById("InnerBox");
+const statusEl        = document.getElementById("status");
+
+const PlayABtn        = document.getElementById("PlayABtn");
+const PlayBBtn        = document.getElementById("PlayBBtn");
+
+const fileSelector    = document.getElementById("fileSelector");
+
+function randomGain() {
+  return gainLevels[Math.floor(Math.random() * gainLevels.length)];
+}
+
+function randomVersion() {
+  return Math.random() > 0.5 ? "A" : "B";
+}
+
+function setStatus(msg, cls='') {
+  statusEl.textContent = msg;
+  statusEl.className = 'status ' + cls;
+}
+
+function stopPlayback() {
+  if (audio) {
+    audio.pause();
+    audio.src = '';
+    audio = null;
+  }
+  setStatus("READY");
+}
+
+async function playVersion(version) {
+
+  if (audio && !audio.paused) {
+        stopPlayback();
+        return;
+      }
+
+  stopPlayback();
+  setStatus("PROCESSING...", "loading");
+
+  try {
+
+    const selectedFile = fileSelector.value;
+
+    const url =
+      `/loudness_audio/?` +
+      `version=${version}` +
+      `&louder=${louderVersion}` +
+      `&gain=${gainDb}` +
+      `&file=${encodeURIComponent(selectedFile)}`;
+
+    const resp = await fetch(url);
+
+    if (!resp.ok) {
+      throw new Error(await resp.text());
+    }
+
+    const blob = await resp.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    audio = new Audio(blobUrl);
+
+    audio.addEventListener('ended', stopPlayback);
+
+    await audio.play();
+    
+    setStatus("PLAYING");
+
+  } catch (err) {
+    setStatus("ERROR: " + err.message, "error");
+  }
+}
+
+PlayABtn.addEventListener("click", () => playVersion("A"));
+PlayBBtn.addEventListener("click", () => playVersion("B"));
+
+function submit() {
+
+  stopPlayback();
+
+  const selected = document.querySelector('input[name="answer"]:checked');
+
+  if (!selected) {
+    AnswerIndicator.textContent = "Select an answer first.";
+    return;
+  }
+
+  const answer = selected.value;
+
+  if (answer === louderVersion) {
+
+    AnswerIndicator.textContent =
+      `Correct! Difference was ${gainDb} dB`;
+
+    InnerBox.style.borderColor = "var(--accent2)";
+    InnerBox.style.background = "rgba(129,244,149,0.10)";
+    AnswerIndicator.style.color = "var(--accent2)";
+
+  } else {
+
+    AnswerIndicator.textContent =
+      `Wrong :( Correct: ${louderVersion} (+${gainDb} dB)`;
+
+    InnerBox.style.borderColor = "var(--wrong-hard)";
+    InnerBox.style.background = "rgba(255,111,89,0.10)";
+    AnswerIndicator.style.color = "var(--wrong-light)";
+  }
+
+  document.querySelectorAll('input[name="answer"]').forEach(r => {
+    r.disabled = true;
+  });
+
+  SubmitNextBtn.textContent = "Next";
+
+  SubmitNextBtn.onclick = next;
+
+
+  {% comment %} SubmitNextBtn.textContent = "Next";
+
+  SubmitNextBtn.removeEventListener("click", submit);
+  SubmitNextBtn.addEventListener("click", next, { once: true }); {% endcomment %}
+}
+
+function next() {
+
+  generateRound();
+  AnswerIndicator.textContent = "Which sound is louder?";
+  AnswerIndicator.style.color = "";
+
+  InnerBox.style.borderColor = "";
+  InnerBox.style.background = "";
+  SubmitNextBtn.textContent = "Submit";
+
+   document.querySelectorAll('input[name="answer"]').forEach(r => {
+    r.checked = false;
+    r.disabled = false;
+  });
+
+  SubmitNextBtn.addEventListener("click", submit, { once: true });
+}
+
+function generateRound() {
+  louderVersion = randomVersion();
+  gainDb = randomGain();
+}
+
+SubmitNextBtn.addEventListener("click", submit, { once: true });
+
+generateRound();
+
+</script>
+
+</body>
+</html>

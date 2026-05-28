@@ -19,6 +19,10 @@ def index(request):
     """Render the EQ trainer game page."""
     return render(request, 'player/index.html')
 
+def loudness(request):
+    """Render the EQ trainer game page."""
+    return render(request, 'player/loudness.html')
+
 def serve_audio(request):
     """
     Process audio file with ffmpeg, applying a bass EQ boost/cut,
@@ -116,3 +120,59 @@ def serve_bandwidth_audio(request):
         raise Http404(f"{audio_filename} not found in audio directory.")
     # Band cutoff is done in frontend
     return HttpResponse(open(AUDIO_FILE, 'rb').read(), content_type=content_type)
+
+@require_GET
+def loudness_audio(request):
+
+    audio_filename = request.GET.get('file', 'Gray_noise.wav')
+    
+    # Validate filename to prevent directory traversal
+    if '..' in audio_filename or '/' in audio_filename or '\\' in audio_filename:
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+    
+    AUDIO_FILE = os.path.join(AUDIO_DIR, audio_filename)
+    
+    # Ensure the file is within the audio directory
+    if not os.path.abspath(AUDIO_FILE).startswith(os.path.abspath(AUDIO_DIR)):
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+    
+    if not os.path.exists(AUDIO_FILE):
+        raise Http404(f"{audio_filename} not found in audio directory.")
+    
+    version = request.GET.get("version", "A")
+    louder  = request.GET.get("louder", "A")
+    gain    = float(request.GET.get("gain", 2))
+
+    if version == louder:
+        eq_filter = f"volume={gain}dB"
+    else:
+        eq_filter = "volume=0dB"
+    
+    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        subprocess.run(
+            [
+                'ffmpeg',
+                '-y',                   # overwrite output without asking
+                '-i', AUDIO_FILE,       # input file
+                '-filter:a', eq_filter,       # audio filter (bass EQ)
+                tmp_path,               # output file
+            ],
+            check=True,
+            capture_output=True,        # suppress ffmpeg's verbose console output
+        )
+        with open(tmp_path, 'rb') as f:
+            audio_data = f.read()
+
+    except subprocess.CalledProcessError as e:
+        return HttpResponse(
+            f"ffmpeg error: {e.stderr.decode()}", status=500, content_type='text/plain'
+        )
+    finally:
+        # Always clean up the temp file
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+    return HttpResponse(audio_data, content_type='audio/wav')
