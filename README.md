@@ -17,6 +17,6 @@ pip install -r requirements.txt
 ```
 Then startup the app with
 ```
-git branch
+python manage.py runserver
 ```
 the app should now be available on [http://127.0.0.1:8000](http://127.0.0.1:8000)

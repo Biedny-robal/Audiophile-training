@@ -66,7 +66,8 @@
 
 <script>
 
-let audio = null;
+let audioA = null;
+let audioB = null;
 let louderVersion = null;
 let gainDb = null;
 
@@ -96,21 +97,28 @@ function setStatus(msg, cls='') {
 }
 
 function stopPlayback() {
-  if (audio) {
-    audio.pause();
-    audio.src = '';
-    audio = null;
+  if (audioA) {
+    audioA.pause();
+    audioA.src = '';
+    audioA = null;
   }
+  if (audioB) {
+    audioB.pause();
+    audioB.src = '';
+    audioB = null;
+  }
+
+  PlayABtn.textContent = "Play A";
+  PlayBBtn.textContent = "Play B";
+
   setStatus("READY");
 }
 
-async function playVersion(version) {
-
-  if (audio && !audio.paused) {
-        stopPlayback();
-        return;
-      }
-
+PlayABtn.addEventListener('click', async () => {
+  if (audioA) {
+    stopPlayback();
+    return;
+  }
   stopPlayback();
   setStatus("PROCESSING...", "loading");
 
@@ -120,7 +128,7 @@ async function playVersion(version) {
 
     const url =
       `/loudness_audio/?` +
-      `version=${version}` +
+      `version=A` +
       `&louder=${louderVersion}` +
       `&gain=${gainDb}` +
       `&file=${encodeURIComponent(selectedFile)}`;
@@ -134,21 +142,63 @@ async function playVersion(version) {
     const blob = await resp.blob();
     const blobUrl = URL.createObjectURL(blob);
 
-    audio = new Audio(blobUrl);
+    audioA = new Audio(blobUrl);
 
-    audio.addEventListener('ended', stopPlayback);
+    audioA.addEventListener('ended', stopPlayback);
 
-    await audio.play();
+    await audioA.play();
     
-    setStatus("PLAYING");
-
+    setStatus("PLAYING A");
+    PlayABtn.textContent = "Stop";
   } catch (err) {
     setStatus("ERROR: " + err.message, "error");
+  } finally {
+    PlayABtn.disabled =  false;
   }
-}
+});
 
-PlayABtn.addEventListener("click", () => playVersion("A"));
-PlayBBtn.addEventListener("click", () => playVersion("B"));
+PlayBBtn.addEventListener('click', async () => {
+  if (audioB) {
+    stopPlayback();
+    return;
+  }
+  stopPlayback();
+  setStatus("PROCESSING...", "loading");
+
+  try {
+
+    const selectedFile = fileSelector.value;
+
+    const url =
+      `/loudness_audio/?` +
+      `version=B` +
+      `&louder=${louderVersion}` +
+      `&gain=${gainDb}` +
+      `&file=${encodeURIComponent(selectedFile)}`;
+
+    const resp = await fetch(url);
+
+    if (!resp.ok) {
+      throw new Error(await resp.text());
+    }
+
+    const blob = await resp.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    audioB = new Audio(blobUrl);
+
+    audioB.addEventListener('ended', stopPlayback);
+
+    await audioB.play();
+    
+    setStatus("PLAYING B");
+    PlayBBtn.textContent = "Stop";
+  } catch (err) {
+    setStatus("ERROR: " + err.message, "error");
+  } finally {
+    PlayBBtn.disabled =  false;
+  }
+});
 
 function submit() {
 
