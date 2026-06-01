@@ -1,0 +1,757 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <title>EQ Trainer — Loudness Delta</title>
+  <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/loudness.css' %}">
+</head>
+<body>
+  <div class="aspect-overlay" id="aspectOverlay">
+    <h2>Please rotate or resize!</h2>
+    <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
+  </div>
+
+  <div class="Box" id="InnerBox">
+
+    <h2 class="AnswerIndicator" id="AnswerIndicator">Estimate the dB difference</h2>
+    <h3 class="TaskDescription">Play Reference then Subject — how many dB apart are they?</h3>
+    <h3 class="status" id="status">READY</h3>
+
+    <!-- Transport -->
+    <div class="transport-row">
+      <button type="button" id="RefBtn" class="transport-btn">
+        <span class="transport-label">REF</span>
+        <span class="transport-sub">Reference</span>
+      </button>
+      <div class="transport-divider"></div>
+      <button type="button" id="SubBtn" class="transport-btn">
+        <span class="transport-label">SUB</span>
+        <span class="transport-sub">Subject</span>
+      </button>
+    </div>
+
+    <!-- Waveform + loop region -->
+    <div class="waveform-wrap">
+      <span class="loop-time-label" id="loopInLabel">0.00s</span>
+      <div class="waveform-container" id="waveContainer">
+        <canvas id="waveCanvas"></canvas>
+        <div class="loop-overlay" id="loopOverlay">
+          <div class="loop-region-fill" id="loopFill"></div>
+          <div class="loop-handle loop-handle-in"  id="handleIn"></div>
+          <div class="loop-handle loop-handle-out" id="handleOut"></div>
+        </div>
+        <div class="wave-rendering-badge" id="renderBadge" hidden>rendering…</div>
+      </div>
+      <span class="loop-time-label loop-time-right" id="loopOutLabel">—</span>
+    </div>
+
+    <!-- Answer buttons -->
+    <div class="answer-grid" id="answerGrid"></div>
+
+    <!-- Settings panel -->
+    <details class="settings-panel">
+      <summary class="settings-toggle">// settings</summary>
+      <div class="settings-body">
+
+        <div class="setting-row">
+          <span class="setting-label">Preset difficulty</span>
+          <div class="chip-row" id="presetRow">
+            <button class="chip active" data-min="6" data-max="12" data-step="3" data-opts="3" data-dir="mixed">Easy</button>
+            <button class="chip" data-min="3" data-max="9"   data-step="3"   data-opts="4" data-dir="mixed">Medium</button>
+            <button class="chip" data-min="1" data-max="6"   data-step="1"   data-opts="5" data-dir="mixed">Hard</button>
+            <button class="chip" data-min="0.5" data-max="3" data-step="0.5" data-opts="6" data-dir="mixed">Expert</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label">Min difference</span>
+          <input type="range" id="slMin" min="0.5" max="12" step="0.5" value="6">
+          <span class="setting-val" id="valMin">6 dB</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Max difference</span>
+          <input type="range" id="slMax" min="0.5" max="24" step="0.5" value="12">
+          <span class="setting-val" id="valMax">12 dB</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Step size</span>
+          <input type="range" id="slStep" min="0.5" max="6" step="0.5" value="3">
+          <span class="setting-val" id="valStep">3 dB</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Options shown</span>
+          <input type="range" id="slOpts" min="2" max="12" step="1" value="3">
+          <span class="setting-val" id="valOpts">3</span>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label">Direction</span>
+          <div class="chip-row" id="dirRow">
+            <button class="chip active" data-val="mixed">± Mixed</button>
+            <button class="chip" data-val="positive">+ Louder only</button>
+            <button class="chip" data-val="negative">− Quieter only</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">On clip switch</span>
+          <div class="chip-row" id="switchRow">
+            <button class="chip active" data-val="restart">Restart</button>
+            <button class="chip" data-val="continue">Continue position</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Loop</span>
+          <div class="chip-row" id="loopRow">
+            <button class="chip active" data-val="on">On</button>
+            <button class="chip" data-val="off">Off</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Loop crossfade</span>
+          <input type="range" id="slLoopFade" min="0" max="100" step="1" value="20">
+          <span class="setting-val" id="valLoopFade">20 ms</span>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Clip switch fade</span>
+          <input type="range" id="slSwitchFade" min="0" max="80" step="1" value="15">
+          <span class="setting-val" id="valSwitchFade">15 ms</span>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <div class="setting-row">
+          <span class="setting-label">Shuffle mode</span>
+          <div class="chip-row" id="shuffleRow">
+            <button class="chip active" data-val="off">Off</button>
+            <button class="chip" data-val="on">On — random each round</button>
+          </div>
+        </div>
+        <div class="setting-row" id="fixedSourceRow">
+          <span class="setting-label">Audio source</span>
+          <select class="file-selector" id="fileSelector"></select>
+        </div>
+        <div class="setting-row setting-row-top" id="shuffleSourceRow" style="display:none">
+          <span class="setting-label">Shuffle pool</span>
+          <div class="source-list" id="sourceList"></div>
+        </div>
+
+      </div>
+    </details>
+
+    <!-- Score + next -->
+    <div class="bottom-controls">
+      <div class="score-area">
+        <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
+        <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
+        <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+      </div>
+      <button type="button" id="NextBtn" class="NextBtn" disabled>Next</button>
+    </div>
+
+  </div><!-- .Box -->
+
+  <script>
+  (function () {
+    const AC = new (window.AudioContext || window.webkitAudioContext)();
+
+    // ── All available audio files ─────────────────────────────────────
+    // Add filenames here as you add files to the /audio/ directory.
+    const AUDIO_FILES = [
+      'Gray_noise.wav',
+      'sample.wav',
+    ];
+
+    // ── Config ────────────────────────────────────────────────────────
+    const cfg = {
+      rangeMin:       6,
+      rangeMax:       12,
+      stepSize:       3,
+      numOptions:     3,
+      direction:      'mixed',
+      switchMode:     'restart',
+      loop:           true,
+      loopFadeSecs:   0.020,
+      switchFadeSecs: 0.015,
+      shuffle:        false,
+      activeFiles:    new Set(AUDIO_FILES),
+      currentFile:    AUDIO_FILES[0],
+    };
+
+    // ── Game state ────────────────────────────────────────────────────
+    let targetDb = 0, answered = false;
+    let correct = 0, wrong = 0, streak = 0;
+
+    // ── Audio state ───────────────────────────────────────────────────
+    let rawBuffer  = null;   // original decoded file
+    let loopBuffer = null;   // pre-rendered seamless loop
+    let loopIn     = 0;      // fraction 0..1
+    let loopOut    = 1;
+
+    // Dual-slot crossfade
+    let slotA = null, slotB = null;
+    let activeSlot  = null;
+    let playingClip = null;
+    let playStartedAt   = 0;
+    let playOffsetStart = 0;
+
+    let renderTimer = null;
+
+    // ── DOM ───────────────────────────────────────────────────────────
+    const AnsIndicator    = document.getElementById('AnswerIndicator');
+    const statusEl        = document.getElementById('status');
+    const RefBtn          = document.getElementById('RefBtn');
+    const SubBtn          = document.getElementById('SubBtn');
+    const answerGrid      = document.getElementById('answerGrid');
+    const NextBtn         = document.getElementById('NextBtn');
+    const InnerBox        = document.getElementById('InnerBox');
+    const waveCanvas      = document.getElementById('waveCanvas');
+    const waveContainer   = document.getElementById('waveContainer');
+    const loopOverlay     = document.getElementById('loopOverlay');
+    const loopFill        = document.getElementById('loopFill');
+    const handleIn        = document.getElementById('handleIn');
+    const handleOut       = document.getElementById('handleOut');
+    const loopInLabel     = document.getElementById('loopInLabel');
+    const loopOutLabel    = document.getElementById('loopOutLabel');
+    const renderBadge     = document.getElementById('renderBadge');
+    const sourceList      = document.getElementById('sourceList');
+    const fileSelector    = document.getElementById('fileSelector');
+    const fixedSourceRow  = document.getElementById('fixedSourceRow');
+    const shuffleSourceRow= document.getElementById('shuffleSourceRow');
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function dbToLinear(db) { return Math.pow(10, db / 20); }
+    function setStatus(msg) { statusEl.textContent = msg; }
+    function fmt(s)         { return s.toFixed(2) + 's'; }
+
+    function resetBoxStyle() {
+      InnerBox.style.borderColor = '';
+      InnerBox.style.background  = '';
+      statusEl.style.color       = '';
+      AnsIndicator.style.color   = '';
+    }
+    function updateScore() {
+      document.getElementById('scoreCorrect').textContent = '✓ ' + correct;
+      document.getElementById('scoreWrong').textContent   = '✗ ' + wrong;
+      document.getElementById('scoreStreak').textContent  = '↯ ' + streak;
+    }
+
+    // ── Source UI ─────────────────────────────────────────────────────
+    function buildSourceUI() {
+      // Fixed dropdown
+      fileSelector.innerHTML = '';
+      AUDIO_FILES.forEach(file => {
+        const opt = document.createElement('option');
+        opt.value = file;
+        opt.textContent = file;
+        if (file === cfg.currentFile) opt.selected = true;
+        fileSelector.appendChild(opt);
+      });
+
+      // Shuffle checkboxes
+      sourceList.innerHTML = '';
+      AUDIO_FILES.forEach(file => {
+        const label = document.createElement('label');
+        label.className = 'source-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = file;
+        cb.checked = cfg.activeFiles.has(file);
+        cb.addEventListener('change', () => {
+          if (cb.checked) cfg.activeFiles.add(file);
+          else {
+            if (cfg.activeFiles.size <= 1) { cb.checked = true; return; }
+            cfg.activeFiles.delete(file);
+          }
+        });
+        const span = document.createElement('span');
+        span.textContent = file;
+        label.appendChild(cb);
+        label.appendChild(span);
+        sourceList.appendChild(label);
+      });
+    }
+
+    fileSelector.addEventListener('change', async () => {
+      cfg.currentFile = fileSelector.value;
+      await loadFile(cfg.currentFile);
+    });
+
+    function pickShuffleFile() {
+      const pool = [...cfg.activeFiles];
+      const filtered = pool.length > 1 ? pool.filter(f => f !== cfg.currentFile) : pool;
+      return filtered[Math.floor(Math.random() * filtered.length)];
+    }
+
+    // ── Waveform drawing ──────────────────────────────────────────────
+    function drawWaveform(buf) {
+      const dpr = window.devicePixelRatio || 1;
+      const W   = waveContainer.clientWidth;
+      const H   = waveContainer.clientHeight;
+      waveCanvas.width        = W * dpr;
+      waveCanvas.height       = H * dpr;
+      waveCanvas.style.width  = W + 'px';
+      waveCanvas.style.height = H + 'px';
+
+      const ctx = waveCanvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, W, H);
+
+      if (!buf) {
+        ctx.strokeStyle = 'rgba(142,141,190,0.15)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+          const y = (H / 4) * i;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(142,141,190,0.25)';
+        ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+        return;
+      }
+
+      const ch0   = buf.getChannelData(0);
+      const ch1   = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+      const total = ch0.length;
+      const mid   = H / 2;
+
+      ctx.strokeStyle = 'rgba(142,141,190,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+      ctx.fillStyle = 'rgba(142,141,190,0.55)';
+      for (let col = 0; col < W; col++) {
+        const s0 = Math.floor((col / W) * total);
+        const s1 = Math.floor(((col + 1) / W) * total);
+        let mn = 0, mx = 0;
+        for (let s = s0; s < s1; s++) {
+          const v = ch1 ? (ch0[s] + ch1[s]) * 0.5 : ch0[s];
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+        }
+        ctx.fillRect(col, mid + mn * mid, 1, Math.max(1, (mx - mn) * mid));
+      }
+    }
+
+    // ── Loop UI ───────────────────────────────────────────────────────
+    function updateLoopUI() {
+      loopFill.style.left  = (loopIn  * 100) + '%';
+      loopFill.style.width = ((loopOut - loopIn) * 100) + '%';
+      handleIn.style.left  = (loopIn  * 100) + '%';
+      handleOut.style.left = (loopOut * 100) + '%';
+      loopInLabel.textContent  = rawBuffer ? fmt(loopIn  * rawBuffer.duration) : '0.00s';
+      loopOutLabel.textContent = rawBuffer ? fmt(loopOut * rawBuffer.duration) : '--';
+    }
+
+    // ── Offline render -- Option B ────────────────────────────────────
+    // Extracts the loop region, applies an equal-power crossfade AT the loop
+    // point (tail blended into head), producing a seamless looping buffer.
+    async function renderLoopBuffer() {
+      if (!rawBuffer) return;
+      renderBadge.hidden = false;
+
+      const sr        = rawBuffer.sampleRate;
+      const nCh       = rawBuffer.numberOfChannels;
+      const inSample  = Math.floor(loopIn  * rawBuffer.length);
+      const outSample = Math.floor(loopOut * rawBuffer.length);
+      const regionLen = Math.max(outSample - inSample, 1);
+
+      // Fade length: requested ms, but never more than half the region
+      const fadeSamples = Math.min(
+        Math.round(cfg.loopFadeSecs * sr),
+        Math.floor(regionLen / 2)
+      );
+
+      // Find the peak amplitude in the region so we can normalise headroom.
+      // We target -6 dBFS (linear 0.5) so +12 dB boost stays clean.
+      let peak = 0;
+      for (let ch = 0; ch < nCh; ch++) {
+        const data = rawBuffer.getChannelData(ch);
+        for (let i = inSample; i < outSample; i++) {
+          const abs = Math.abs(data[i]);
+          if (abs > peak) peak = abs;
+        }
+      }
+      // Normalise to -6 dBFS headroom (0.5 linear). If peak is tiny, skip.
+      const normaliseGain = peak > 0.001 ? 0.5 / peak : 1.0;
+
+      const out = AC.createBuffer(nCh, regionLen, sr);
+
+      for (let ch = 0; ch < nCh; ch++) {
+        const src = rawBuffer.getChannelData(ch);
+        const dst = out.getChannelData(ch);
+
+        // 1. Copy region, applying normalisation
+        for (let i = 0; i < regionLen; i++) {
+          dst[i] = src[inSample + i] * normaliseGain;
+        }
+
+        // 2. Equal-power crossfade: blend the region's tail over its head.
+        //    This is the ONLY write pass -- no double-write bug.
+        //    At f=0:          tail weight=1, head weight=0  (tail dominates)
+        //    At f=fadeSamples: tail weight=0, head weight=1 (head dominates)
+        for (let f = 0; f < fadeSamples; f++) {
+          const angle   = (f / fadeSamples) * Math.PI * 0.5;
+          const wHead   = Math.sin(angle);  // 0 -> 1
+          const wTail   = Math.cos(angle);  // 1 -> 0
+
+          const headVal = src[inSample + f]                             * normaliseGain;
+          const tailVal = src[inSample + regionLen - fadeSamples + f]  * normaliseGain;
+
+          dst[f] = headVal * wHead + tailVal * wTail;
+        }
+      }
+
+      loopBuffer = out;
+      renderBadge.hidden = true;
+
+      // If already playing, hot-swap the buffer into the active slot
+      if (playingClip) {
+        const clip = playingClip;
+        playClip(clip);
+      }
+    }
+
+    function scheduleRender() {
+      clearTimeout(renderTimer);
+      renderTimer = setTimeout(renderLoopBuffer, 80);
+    }
+
+    // ── Drag handles ──────────────────────────────────────────────────
+    function makeDraggable(handle, onMove) {
+      let dragging = false;
+      handle.addEventListener('pointerdown', e => {
+        dragging = true;
+        handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      handle.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const rect = loopOverlay.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        onMove(frac);
+        updateLoopUI();
+        scheduleRender();
+      });
+      handle.addEventListener('pointerup', () => { dragging = false; });
+    }
+    makeDraggable(handleIn,  frac => { loopIn  = Math.min(frac, loopOut - 0.02); });
+    makeDraggable(handleOut, frac => { loopOut = Math.max(frac, loopIn  + 0.02); });
+
+    loopOverlay.addEventListener('pointerdown', e => {
+      if (e.target === handleIn || e.target === handleOut) return;
+      const rect = loopOverlay.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if (Math.abs(frac - loopIn) < Math.abs(frac - loopOut))
+        loopIn  = Math.min(frac, loopOut - 0.02);
+      else
+        loopOut = Math.max(frac, loopIn  + 0.02);
+      updateLoopUI();
+      scheduleRender();
+    });
+
+    // ── Dual-slot crossfade (clip switching) ──────────────────────────
+    function nextSlotKey() { return activeSlot === 'A' ? 'B' : 'A'; }
+    function getSlot(key)  { return key === 'A' ? slotA : slotB; }
+    function setSlot(key, val) { if (key === 'A') slotA = val; else slotB = val; }
+
+    function currentOffset() {
+      if (!loopBuffer || !playingClip) return 0;
+      const elapsed = AC.currentTime - playStartedAt + playOffsetStart;
+      return ((elapsed % loopBuffer.duration) + loopBuffer.duration) % loopBuffer.duration;
+    }
+
+    function killSlot(key, fadeSecs) {
+      const slot = getSlot(key);
+      if (!slot) return;
+      const now = AC.currentTime;
+      slot.gain.gain.setValueAtTime(slot.gain.gain.value, now);
+      slot.gain.gain.linearRampToValueAtTime(0, now + fadeSecs);
+      const s = slot.src;
+      setTimeout(() => { try { s.stop(); } catch(_){} }, (fadeSecs + 0.05) * 1000);
+      setSlot(key, null);
+    }
+
+    function stopAll(fadeSecs) {
+      const f = fadeSecs !== undefined ? fadeSecs : cfg.switchFadeSecs;
+      killSlot('A', f);
+      killSlot('B', f);
+      activeSlot  = null;
+      playingClip = null;
+      RefBtn.classList.remove('playing');
+      SubBtn.classList.remove('playing');
+      if (!answered) setStatus('READY');
+    }
+
+    function playClip(clip) {
+      if (!loopBuffer) return;
+      if (AC.state === 'suspended') AC.resume();
+
+      // The loopBuffer is normalised to -6 dBFS, so applying any gain
+      // up to +6 dB stays within 0 dBFS. For larger boosts we're still
+      // safe because the headroom is 0.5 linear (= -6 dB), meaning
+      // +12 dB (x4) * 0.5 = x2 = 0 dBFS -- exactly at the ceiling.
+      const db     = clip === 'ref' ? 0 : targetDb;
+      const target = dbToLinear(db);
+      const fade   = cfg.switchFadeSecs;
+      const now    = AC.currentTime;
+
+      let offset = 0;
+      if (cfg.switchMode === 'continue' && playingClip !== null) {
+        offset = currentOffset();
+      }
+
+      const oldKey = activeSlot;
+      if (oldKey) killSlot(oldKey, fade);
+
+      const newKey   = nextSlotKey();
+      const gainNode = AC.createGain();
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(target, now + fade);
+
+      // Hard limiter (DynamicsCompressor as brick-wall) after the gain
+      // to catch any remaining inter-sample peaks
+      const limiter = AC.createDynamicsCompressor();
+      limiter.threshold.value = -1;   // dBFS
+      limiter.knee.value      = 0;
+      limiter.ratio.value     = 20;   // near brick-wall
+      limiter.attack.value    = 0.001;
+      limiter.release.value   = 0.1;
+
+      gainNode.connect(limiter);
+      limiter.connect(AC.destination);
+
+      const srcNode = AC.createBufferSource();
+      srcNode.buffer = loopBuffer;
+      srcNode.loop   = cfg.loop;
+      srcNode.connect(gainNode);
+      srcNode.start(0, offset);
+
+      setSlot(newKey, { src: srcNode, gain: gainNode });
+      activeSlot      = newKey;
+      playingClip     = clip;
+      playStartedAt   = now;
+      playOffsetStart = offset;
+
+      RefBtn.classList.toggle('playing', clip === 'ref');
+      SubBtn.classList.toggle('playing', clip === 'sub');
+      if (!answered) setStatus(clip === 'ref' ? 'PLAYING REF' : 'PLAYING SUB');
+
+      if (!cfg.loop) {
+        srcNode.addEventListener('ended', () => {
+          if (activeSlot === newKey) {
+            activeSlot = null; playingClip = null;
+            RefBtn.classList.remove('playing');
+            SubBtn.classList.remove('playing');
+            if (!answered) setStatus('READY');
+          }
+        });
+      }
+    }
+
+    // ── Load file ─────────────────────────────────────────────────────
+    async function loadFile(filename) {
+      stopAll(0.005);
+      rawBuffer = null; loopBuffer = null;
+      loopIn = 0; loopOut = 1;
+      drawWaveform(null);
+      updateLoopUI();
+      setStatus('LOADING...');
+      cfg.currentFile = filename;
+
+      const resp = await fetch('/raw-audio/?file=' + encodeURIComponent(filename));
+      if (!resp.ok) throw new Error(await resp.text());
+      rawBuffer = await AC.decodeAudioData(await resp.arrayBuffer());
+
+      drawWaveform(rawBuffer);
+      updateLoopUI();
+      await renderLoopBuffer();
+      setStatus('READY');
+    }
+
+    async function ensureReady() {
+      if (!loopBuffer) await loadFile(cfg.currentFile);
+    }
+
+    // ── Transport ─────────────────────────────────────────────────────
+    RefBtn.addEventListener('click', async () => {
+      if (answered) return;
+      if (playingClip === 'ref') { stopAll(); return; }
+      await ensureReady();
+      playClip('ref');
+    });
+    SubBtn.addEventListener('click', async () => {
+      if (answered) return;
+      if (playingClip === 'sub') { stopAll(); return; }
+      await ensureReady();
+      playClip('sub');
+    });
+
+    // ── Option generation ─────────────────────────────────────────────
+    function buildPool() {
+      const pool = [];
+      for (let v = cfg.rangeMin; v <= cfg.rangeMax + 0.001; v += cfg.stepSize) {
+        const r = parseFloat(v.toFixed(2));
+        if (cfg.direction !== 'negative') pool.push(+r);
+        if (cfg.direction !== 'positive') pool.push(-r);
+      }
+      return pool;
+    }
+
+    function generateOptions() {
+      const pool = buildPool();
+      if (!pool.length) return;
+      targetDb = pool[Math.floor(Math.random() * pool.length)];
+      const distractors = pool.filter(v => Math.abs(v - targetDb) > 0.001);
+      for (let i = distractors.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [distractors[i], distractors[j]] = [distractors[j], distractors[i]];
+      }
+      const chosen = [targetDb, ...distractors.slice(0, cfg.numOptions - 1)];
+      chosen.sort((a, b) => a - b);
+
+      answerGrid.innerHTML = '';
+      chosen.forEach(val => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ans-btn';
+        btn.textContent = (val > 0 ? '+' : '') + val.toFixed(1) + ' dB';
+        btn.dataset.val = val;
+        btn.addEventListener('click', () => checkAnswer(val, btn));
+        answerGrid.appendChild(btn);
+      });
+    }
+
+    // ── Answer checking ───────────────────────────────────────────────
+    function checkAnswer(val, btn) {
+      if (answered) return;
+      answered = true;
+      stopAll();
+
+      const isCorrect = Math.abs(val - targetDb) < 0.001;
+      document.querySelectorAll('.ans-btn').forEach(b => {
+        b.disabled = true;
+        if (Math.abs(parseFloat(b.dataset.val) - targetDb) < 0.001)
+          b.classList.add(isCorrect ? 'ans-correct' : 'ans-reveal');
+      });
+      if (!isCorrect) btn.classList.add('ans-wrong');
+
+      if (isCorrect) {
+        correct++; streak++;
+        AnsIndicator.textContent   = 'Correct!';
+        AnsIndicator.style.color   = 'var(--accent2)';
+        InnerBox.style.borderColor = 'var(--accent2)';
+        InnerBox.style.background  = 'rgba(129,244,149,0.10)';
+        statusEl.style.color       = 'var(--accent2)';
+        setStatus('CORRECT');
+      } else {
+        wrong++; streak = 0;
+        AnsIndicator.textContent   = 'Incorrect -- answer was ' + (targetDb > 0 ? '+' : '') + targetDb.toFixed(1) + ' dB';
+        AnsIndicator.style.color   = 'var(--wrong-light)';
+        InnerBox.style.borderColor = 'var(--wrong-hard)';
+        InnerBox.style.background  = 'rgba(255,111,89,0.10)';
+        statusEl.style.color       = 'var(--wrong-light)';
+        setStatus('WRONG');
+      }
+      NextBtn.disabled = false;
+      updateScore();
+    }
+
+    // ── Next round ────────────────────────────────────────────────────
+    NextBtn.addEventListener('click', async () => {
+      answered = false;
+      NextBtn.disabled = true;
+      resetBoxStyle();
+      AnsIndicator.textContent = 'Estimate the dB difference';
+
+      if (cfg.shuffle) {
+        const next = pickShuffleFile();
+        if (next !== cfg.currentFile) {
+          await loadFile(next);
+          // Sync the dropdown to show the new file
+          fileSelector.value = next;
+        }
+      }
+
+      setStatus('READY');
+      generateOptions();
+    });
+
+    // ── Settings wiring ───────────────────────────────────────────────
+    function chipGroup(rowId, cb) {
+      document.getElementById(rowId).addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        document.querySelectorAll('#' + rowId + ' .chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        cb(chip);
+      });
+    }
+    function clearPresets() {
+      document.querySelectorAll('#presetRow .chip').forEach(c => c.classList.remove('active'));
+    }
+    function syncSliders() {
+      document.getElementById('slMin').value  = cfg.rangeMin;
+      document.getElementById('slMax').value  = cfg.rangeMax;
+      document.getElementById('slStep').value = cfg.stepSize;
+      document.getElementById('slOpts').value = cfg.numOptions;
+      document.getElementById('valMin').textContent  = cfg.rangeMin  + ' dB';
+      document.getElementById('valMax').textContent  = cfg.rangeMax  + ' dB';
+      document.getElementById('valStep').textContent = cfg.stepSize  + ' dB';
+      document.getElementById('valOpts').textContent = cfg.numOptions;
+    }
+
+    chipGroup('presetRow', chip => {
+      cfg.rangeMin   = parseFloat(chip.dataset.min);
+      cfg.rangeMax   = parseFloat(chip.dataset.max);
+      cfg.stepSize   = parseFloat(chip.dataset.step);
+      cfg.numOptions = parseInt(chip.dataset.opts);
+      cfg.direction  = chip.dataset.dir;
+      document.querySelectorAll('#dirRow .chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.val === cfg.direction));
+      syncSliders();
+      generateOptions();
+    });
+
+    function sliderSetup(id, valId, unit, key, isInt, extra) {
+      document.getElementById(id).addEventListener('input', function() {
+        const v = isInt ? parseInt(this.value) : parseFloat(this.value);
+        cfg[key] = v;
+        document.getElementById(valId).textContent = v + (unit || '');
+        clearPresets();
+        if (extra) extra(v); else generateOptions();
+      });
+    }
+    sliderSetup('slMin',  'valMin',  ' dB', 'rangeMin',  false);
+    sliderSetup('slMax',  'valMax',  ' dB', 'rangeMax',  false);
+    sliderSetup('slStep', 'valStep', ' dB', 'stepSize',  false);
+    sliderSetup('slOpts', 'valOpts', '',    'numOptions', true);
+    sliderSetup('slLoopFade',   'valLoopFade',   ' ms', 'loopFadeSecs',   false, v => { cfg.loopFadeSecs   = v / 1000; scheduleRender(); });
+    sliderSetup('slSwitchFade', 'valSwitchFade', ' ms', 'switchFadeSecs', false, v => { cfg.switchFadeSecs = v / 1000; });
+
+    chipGroup('dirRow',    chip => { cfg.direction  = chip.dataset.val; clearPresets(); generateOptions(); });
+    chipGroup('switchRow', chip => { cfg.switchMode = chip.dataset.val; });
+    chipGroup('loopRow',   chip => {
+      cfg.loop = chip.dataset.val === 'on';
+      [slotA, slotB].forEach(s => { if (s) s.src.loop = cfg.loop; });
+    });
+    chipGroup('shuffleRow', chip => {
+      cfg.shuffle = chip.dataset.val === 'on';
+      fixedSourceRow.style.display  = cfg.shuffle ? 'none' : '';
+      shuffleSourceRow.style.display = cfg.shuffle ? '' : 'none';
+    });
+
+    new ResizeObserver(() => drawWaveform(rawBuffer)).observe(waveContainer);
+
+    // ── Init ──────────────────────────────────────────────────────────
+    buildSourceUI();
+    drawWaveform(null);
+    updateLoopUI();
+    generateOptions();
+  })();
+  </script>
+</body>
+</html>
