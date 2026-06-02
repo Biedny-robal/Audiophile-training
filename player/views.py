@@ -2,23 +2,24 @@ import subprocess
 import tempfile
 import os
 from django.shortcuts import render
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, FileResponse
 from django.conf import settings
 from django.views.decorators.http import require_GET
 
-# Path to the audio files directory
 AUDIO_DIR = os.path.join(settings.BASE_DIR, 'audio')
 
 
 def menu(request):
-    """Render the main menu page."""
     return render(request, 'player/menu.html')
 
 def eq_trainer(request):
     """Render the EQ trainer game page."""
     return render(request, 'player/eq_trainer.html')
 
-def loudness(request):
+def index(request):
+    return render(request, 'player/index.html')
+
+def loudness-ab(request):
     """Render the EQ trainer game page."""
     return render(request, 'player/loudness-ab.html')
 
@@ -26,76 +27,84 @@ def spatial(request):
     """Render the Spatial trainer game page."""
     return render(request, 'player/spatial.html')
 
+def loudness(request):
+    return render(request, 'player/loudness.html')
+
+
+def _validated_audio_path(audio_filename):
+    """Return absolute path after validating filename is safe. Returns None if invalid."""
+    if not audio_filename:
+        return None
+    if '..' in audio_filename or '/' in audio_filename or '\\' in audio_filename:
+        return None
+    path = os.path.join(AUDIO_DIR, audio_filename)
+    if not os.path.abspath(path).startswith(os.path.abspath(AUDIO_DIR)):
+        return None
+    if not os.path.exists(path):
+        return None
+    return path
+
+
+def serve_raw_audio(request):
+    """
+    Stream a raw (unprocessed) audio file to the browser.
+    The loudness game applies gain entirely in the browser via Web Audio API,
+    so no ffmpeg processing is needed here.
+
+    Query params:
+        file (str): filename within the audio directory (e.g. 'Gray_noise.wav')
+    """
+    audio_filename = request.GET.get('file', 'Gray_noise.wav')
+    path = _validated_audio_path(audio_filename)
+
+    if path is None:
+        if not os.path.exists(os.path.join(AUDIO_DIR, audio_filename)):
+            raise Http404(f"{audio_filename} not found.")
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+
+    return FileResponse(open(path, 'rb'), content_type='audio/wav')
+
+
 def serve_audio(request):
     """
-    Process audio file with ffmpeg, applying a bass EQ boost/cut,
+    Process audio file with ffmpeg, applying a parametric EQ band boost,
     and stream the resulting audio back to the browser.
 
     Query params:
-        bass (int): gain in dB for the low-frequency equalizer band.
-                    Positive = louder bass, negative = quieter.
-                    Clamped to [0, 20] on the server for safety.
-        file (str): name of the audio file to process (e.g., 'Gray_noise.wav', 'sample.wav')
+        freq (int): centre frequency in Hz for the equalizer band
+        file (str): name of the audio file to process
     """
-    # Get the requested audio file
     audio_filename = request.GET.get('file', 'Gray_noise.wav')
-    
-    # Validate filename to prevent directory traversal
-    if '..' in audio_filename or '/' in audio_filename or '\\' in audio_filename:
-        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
-    
-    AUDIO_FILE = os.path.join(AUDIO_DIR, audio_filename)
-    
-    # Ensure the file is within the audio directory
-    if not os.path.abspath(AUDIO_FILE).startswith(os.path.abspath(AUDIO_DIR)):
-        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
-    
-    if not os.path.exists(AUDIO_FILE):
-        raise Http404(f"{audio_filename} not found in audio directory.")
+    path = _validated_audio_path(audio_filename)
 
-    # Read the requested centre frequency
+    if path is None:
+        if not os.path.exists(os.path.join(AUDIO_DIR, audio_filename)):
+            raise Http404(f"{audio_filename} not found in audio directory.")
+        return HttpResponse("Invalid filename", status=400, content_type='text/plain')
+
     try:
         freq = int(request.GET.get('freq', 0))
     except (ValueError, TypeError):
         freq = 0
 
-    # Build the ffmpeg filter:
-    #   equalizer=f=100        — centre frequency 100 Hz (upper bass)
-    #   width_type=o           — width measured in octaves
-    #   width=2                — 2-octave band (covers ~50–200 Hz)
-    #   g=<gain>               — gain in dB
-    # When gain is 0 we still run through ffmpeg so the pipeline is uniform,
-    # but you could short-circuit and serve the raw file if you prefer.
     eq_filter = f"equalizer=f={freq}:w=10:g=12"
 
-    # Write ffmpeg output into a temporary file so we can stream it cleanly.
-    # We use a named temp file because ffmpeg needs a seekable output target
-    # for WAV headers; streaming to a pipe would require -f wav explicitly.
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
         tmp_path = tmp.name
 
     try:
         subprocess.run(
-            [
-                'ffmpeg',
-                '-y',                   # overwrite output without asking
-                '-i', AUDIO_FILE,       # input file
-                '-filter:a', eq_filter,       # audio filter (bass EQ)
-                tmp_path,               # output file
-            ],
+            ['ffmpeg', '-y', '-i', path, '-filter:a', eq_filter, tmp_path],
             check=True,
-            capture_output=True,        # suppress ffmpeg's verbose console output
+            capture_output=True,
         )
-
         with open(tmp_path, 'rb') as f:
             audio_data = f.read()
-
     except subprocess.CalledProcessError as e:
         return HttpResponse(
             f"ffmpeg error: {e.stderr.decode()}", status=500, content_type='text/plain'
         )
     finally:
-        # Always clean up the temp file
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
