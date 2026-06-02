@@ -134,6 +134,22 @@
     gap: clamp(0.4rem, 1.5vw, 0.8rem);
     margin-top: clamp(0.2rem, 0.8vw, 0.4rem);
 }
+.score-area {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.score-chip {
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(0.62rem, 1.3vw, 0.72rem);
+  font-weight: 500;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 2px solid;
+}
+.correct-chip { border-color: var(--accent2-muted); color: var(--accent2); }
+.wrong-chip   { border-color: var(--wrong-hard);    color: var(--wrong-light); }
+.streak-chip  { border-color: var(--accent3-muted); color: var(--accent3); }
 
 .PlayStopBtn,
 .SubmitNextBtn {

@@ -62,6 +62,11 @@
     Submit
   </button>
 
+      <div class="score-area">
+        <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
+        <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
+        <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+      </div>
 </div>
 
 <script>
@@ -70,6 +75,9 @@ let audioA = null;
 let audioB = null;
 let louderVersion = null;
 let gainDb = null;
+let correct = 0;
+let wrong = 0;
+let streak = 0;
 
 const gainLevels = [0.5, 1, 2, 3, 5, 8];
 const AnswerIndicator = document.getElementById("AnswerIndicator");
@@ -81,6 +89,11 @@ const PlayABtn        = document.getElementById("PlayABtn");
 const PlayBBtn        = document.getElementById("PlayBBtn");
 
 const fileSelector    = document.getElementById("fileSelector");
+
+const scoreCorrectEl = document.getElementById("scoreCorrect");
+const scoreWrongEl   = document.getElementById("scoreWrong");
+const scoreStreakEl  = document.getElementById("scoreStreak");
+
 function randomMode() {
   return Math.random() > 0.5 ? "boost": "cut";
 }
@@ -96,6 +109,12 @@ function randomVersion() {
 function setStatus(msg, cls='') {
   statusEl.textContent = msg;
   statusEl.className = 'status ' + cls;
+}
+
+function updateScore() {
+  scoreCorrectEl.textContent = "✓ " + correct;
+  scoreWrongEl.textContent   = "✗ " + wrong;
+  scoreStreakEl.textContent  = "↯ " + streak;
 }
 
 function stopPlayback() {
@@ -227,9 +246,12 @@ function submit() {
     InnerBox.style.borderColor = "var(--accent2)";
     InnerBox.style.background = "rgba(129,244,149,0.10)";
     AnswerIndicator.style.color = "var(--accent2)";
+    correct++;
+    streak++;
 
   } else {
-
+    wrong++;
+    streak=0;
     AnswerIndicator.textContent =
       `Wrong :( Correct: ${louderVersion} (+${gainDb} dB)`;
 
@@ -244,7 +266,7 @@ function submit() {
 
   SubmitNextBtn.textContent = "Next";
   SubmitNextBtn.onclick = next;
-
+  updateScore();
 }
 
 function next() {
