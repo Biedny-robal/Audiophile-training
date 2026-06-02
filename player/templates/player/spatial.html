@@ -1,0 +1,408 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">    
+  <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/menu.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/spatial.css' %}">
+</head>
+<body>
+
+<div class="container">
+  <div class="error-banner" id="errorBanner"></div>
+
+  <div class="card" id="mainCard">
+
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text">Fetching audio...</div>
+    </div>
+
+    <div class="round-info">
+      <div>
+        <div class="round-num" id="roundNum">Round 1</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-top:2px">of 10</div>
+      </div>
+      <div class="score-display">
+        <div class="score-item">
+          <span class="val" id="scoreCorrect" style="color:var(--accent2)">0</span>
+          <span class="lbl">Correct</span>
+        </div>
+        <div class="score-item">
+          <span class="val" id="scoreTotal" style="color:var(--text-muted)">0</span>
+          <span class="lbl">Played</span>
+        </div>
+        <div class="score-item">
+          <span class="val" id="scoreAvgErr" style="color:var(--accent3)">—</span>
+          <span class="lbl">Avg Err</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="slider-section">
+      <div class="slider-label">
+        <span>Your estimate</span>
+        <span class="slider-value" id="sliderValueLabel">Center (0°)</span>
+      </div>
+      
+      <div class="selection-container">
+        <div class="error-zone" id="errorZone"></div>
+        <div class="sound-indicator" id="soundIndicator"></div>
+        <input type="range" id="dirSlider" min="-90" max="90" value="0" step="1">
+      </div>
+
+      <div class="slider-ticks">
+        <span>← Full Left</span>
+        <span>−45°</span>
+        <span>0° Center</span>
+        <span>+45°</span>
+        <span>Full Right →</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-play" id="playBtn" disabled>
+        <span id="playIcon">▶</span>
+        <span id="playLabel">Play Sound</span>
+      </button>
+      <button class="btn btn-submit" id="submitBtn" disabled>
+        Submit Answer
+      </button>
+      <button class="btn btn-next" id="nextBtn">
+        Next Round →
+      </button>
+    </div>
+
+    <div class="result-feedback" id="resultFeedback"></div>
+
+  </div>
+
+  <div class="card history-section">
+    <div class="history-title">Round History</div>
+    <div class="history-list" id="historyList">
+      <div style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:0.5rem">No rounds played yet</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+const TOTAL_ROUNDS    = 10;
+const ERROR_MARGIN_DEG = 5;   // ±5° window threshold
+const AUDIO_ENDPOINT  = '/api/audio/test-clip/'; 
+
+// ─── App Context State ────────────────────────────────────────────────────────
+let audioCtx        = null;
+let audioBuffer     = null;  
+let pannerNode      = null;
+let sourceNode      = null;
+let isPlaying       = false;
+let currentAngleDeg = 0;     
+let answered        = false;
+let round           = 1;
+let correct         = 0;
+let totalErrors     = [];
+let history         = [];
+
+// ─── DOM Elements Nodes Map ──────────────────────────────────────────────────
+const loadingOverlay   = document.getElementById('loadingOverlay');
+const errorBanner      = document.getElementById('errorBanner');
+const playBtn          = document.getElementById('playBtn');
+const playIcon         = document.getElementById('playIcon');
+const playLabel        = document.getElementById('playLabel');
+const submitBtn        = document.getElementById('submitBtn');
+const nextBtn          = document.getElementById('nextBtn');
+const dirSlider        = document.getElementById('dirSlider');
+const sliderValueLabel = document.getElementById('sliderValueLabel');
+const errorZone        = document.getElementById('errorZone');
+const soundIndicator   = document.getElementById('soundIndicator');
+const resultFeedback   = document.getElementById('resultFeedback');
+const roundNumEl       = document.getElementById('roundNum');
+const scoreCorrect     = document.getElementById('scoreCorrect');
+const scoreTotal       = document.getElementById('scoreTotal');
+const scoreAvgErr      = document.getElementById('scoreAvgErr');
+const historyList      = document.getElementById('historyList');
+
+// ─── Init App Pipeline ────────────────────────────────────────────────────────
+async function init() {
+  showLoading(true);
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const response = await fetch(AUDIO_ENDPOINT);
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const arrayBuffer = await response.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+    showLoading(false);
+    startRound();
+  } catch (err) {
+    showLoading(false);
+    showError(`Failed to load audio: ${err.message}. Check the backend is running.`);
+    await fallbackToOscillator();
+    startRound();
+  }
+}
+
+async function fallbackToOscillator() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const sampleRate = audioCtx.sampleRate;
+  const duration   = 1.5; 
+  const numSamples = Math.floor(sampleRate * duration);
+  audioBuffer      = audioCtx.createBuffer(1, numSamples, sampleRate);
+  const data       = audioBuffer.getChannelData(0);
+
+  let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+  for (let i = 0; i < numSamples; i++) {
+    const white = Math.random() * 2 - 1;
+    b0 = 0.99886*b0 + white*0.0555179;
+    b1 = 0.99332*b1 + white*0.0750759;
+    b2 = 0.96900*b2 + white*0.1538520;
+    b3 = 0.86650*b3 + white*0.3104856;
+    b4 = 0.55000*b4 + white*0.5329522;
+    b5 = -0.7616*b5 - white*0.0168980;
+    data[i] = (b0+b1+b2+b3+b4+b5+b6+white*0.5362) * 0.11;
+    b6 = white * 0.115926;
+  }
+  showError('⚠ Backend unavailable — using generated test tone instead.');
+}
+
+// ─── Session Iteration Loops ──────────────────────────────────────────────────
+function startRound() {
+  answered    = false;
+  isPlaying   = false;
+
+  currentAngleDeg = Math.round((Math.random() * 180) - 90);
+
+  dirSlider.value  = 0;
+  updateSliderUI(0);
+  soundIndicator.style.opacity = '0';
+
+  resultFeedback.style.display = 'none';
+  playBtn.disabled   = false;
+  submitBtn.disabled = false;
+  nextBtn.style.display = 'none';
+  playBtn.classList.remove('playing');
+  playIcon.textContent = '▶';
+  playLabel.textContent = 'Play Sound';
+  roundNumEl.textContent = `Round ${round}`;
+}
+
+// ─── Spatial Sound Processing Mechanics ───────────────────────────────────────
+async function playSound() {
+  if (!audioBuffer) return;
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+  if (sourceNode) {
+    sourceNode.disconnect();
+    sourceNode = null;
+  }
+
+  sourceNode = audioCtx.createBufferSource();
+  sourceNode.buffer = audioBuffer;
+  sourceNode.loop   = false;
+
+  pannerNode = audioCtx.createPanner();
+  pannerNode.panningModel  = 'HRTF';       
+  pannerNode.distanceModel = 'inverse';
+  pannerNode.refDistance   = 1;
+  pannerNode.maxDistance   = 10000;
+  pannerNode.rolloffFactor = 1;
+
+  const rad = (currentAngleDeg * Math.PI) / 180;
+  pannerNode.positionX.value = Math.sin(rad);   
+  pannerNode.positionY.value = 0;
+  pannerNode.positionZ.value = -Math.cos(rad);  
+
+  if (audioCtx.listener.forwardX) {
+    audioCtx.listener.forwardX.value = 0;
+    audioCtx.listener.forwardY.value = 0;
+    audioCtx.listener.forwardZ.value = -1;
+    audioCtx.listener.upX.value = 0;
+    audioCtx.listener.upY.value = 1;
+    audioCtx.listener.upZ.value = 0;
+  }
+
+  sourceNode.connect(pannerNode);
+  pannerNode.connect(audioCtx.destination);
+  sourceNode.start();
+  isPlaying = true;
+
+  playBtn.classList.add('playing');
+  playIcon.innerHTML = `<div class="waveform"><span></span><span></span><span></span><span></span><span></span></div>`;
+  playLabel.textContent = 'Playing...';
+
+  sourceNode.onended = () => {
+    isPlaying = false;
+    playBtn.classList.remove('playing');
+    playIcon.textContent = '▶';
+    playLabel.textContent = 'Play Again';
+    sourceNode = null;
+  };
+}
+
+// ─── Dynamic Selection UI Renderer ───────────────────────────────────────────
+function updateSliderUI(deg) {
+  const abs  = Math.abs(deg);
+  if (deg === 0) {
+    sliderValueLabel.textContent = 'Center (0°)';
+  } else {
+    sliderValueLabel.textContent = `${abs}° ${deg < 0 ? 'Left' : 'Right'}`;
+  }
+
+  const min = -90;
+  const max = 90;
+  const range = max - min;
+
+  const leftDeg = deg - ERROR_MARGIN_DEG;
+  const leftPct = ((leftDeg - min) / range) * 100;
+  const widthPct = ((ERROR_MARGIN_DEG * 2) / range) * 100;
+
+  errorZone.style.left  = `${leftPct}%`;
+  errorZone.style.width = `${widthPct}%`;
+}
+
+dirSlider.addEventListener('input', () => {
+  updateSliderUI(parseInt(dirSlider.value));
+});
+
+// ─── Verification Evaluations ────────────────────────────────────────────────
+function submitAnswer() {
+  if (answered) return;
+  answered = true;
+
+  const guess     = parseInt(dirSlider.value);
+  const actual    = currentAngleDeg;
+  const error     = Math.abs(guess - actual);
+  const isCorrect = error <= ERROR_MARGIN_DEG;
+
+  // Reveal correct location track line overlay onto the selection bar layout
+  const pct = ((actual + 90) / 180) * 100;
+  soundIndicator.style.left    = pct + '%';
+  soundIndicator.style.opacity = '1';
+
+  if (isCorrect) correct++;
+  totalErrors.push(error);
+  scoreCorrect.textContent = correct;
+  scoreTotal.textContent   = round;
+  const avgErr = Math.round(totalErrors.reduce((a,b)=>a+b,0) / totalErrors.length);
+  scoreAvgErr.textContent  = avgErr + '°';
+
+  const actualLabel = actual === 0 ? 'Center' : `${Math.abs(actual)}° ${actual < 0 ? 'Left' : 'Right'}`;
+  const guessLabel  = guess  === 0 ? 'Center' : `${Math.abs(guess)}° ${guess < 0 ? 'Left' : 'Right'}`;
+
+  resultFeedback.className = `result-feedback ${isCorrect ? 'correct' : 'incorrect'}`;
+  resultFeedback.innerHTML = isCorrect
+    ? `Correct! Error: ${error}° (within ±${ERROR_MARGIN_DEG}°)
+       <span class="result-detail">Sound was at ${actualLabel} — you guessed ${guessLabel}</span>`
+    : `Incorrect Answer :( Error: ${error}° (needed ≤${ERROR_MARGIN_DEG}°)
+       <span class="result-detail">Sound was at ${actualLabel} — you guessed ${guessLabel}</span>`;
+  resultFeedback.style.display = 'block';
+
+  addHistory(round, actual, guess, error, isCorrect);
+
+  submitBtn.disabled = true;
+  if (round < TOTAL_ROUNDS) {
+    nextBtn.style.display = 'block';
+  } else {
+    showFinalScore();
+  }
+}
+
+// ─── Historical Serialization Records ────────────────────────────────────────
+function addHistory(roundN, actual, guess, error, isCorrect) {
+  if (historyList.querySelector('[style]')) {
+    historyList.innerHTML = '';
+  }
+  const actualLabel = actual === 0 ? 'Center' : `${Math.abs(actual)}° ${actual < 0 ? 'L' : 'R'}`;
+  const guessLabel  = guess  === 0 ? 'Center' : `${Math.abs(guess)}° ${guess < 0 ? 'L' : 'R'}`;
+
+  const el = document.createElement('div');
+  el.className = 'history-item';
+  el.innerHTML = `
+    <div class="history-dot ${isCorrect ? 'correct' : 'incorrect'}"></div>
+    <span style="color:var(--text-muted);min-width:52px">R${roundN}</span>
+    <span class="h-actual">Actual: ${actualLabel}</span>
+    <span style="color:var(--text-muted)">→</span>
+    <span class="h-guess">Guess: ${guessLabel}</span>
+    <span class="h-err">${error}° err</span>
+  `;
+  historyList.prepend(el);
+}
+
+function showFinalScore() {
+  const avgErr = Math.round(totalErrors.reduce((a,b)=>a+b,0) / totalErrors.length);
+  const pct    = Math.round((correct / TOTAL_ROUNDS) * 100);
+
+  resultFeedback.className = 'result-feedback ' + (pct >= 60 ? 'correct' : 'incorrect');
+  resultFeedback.innerHTML += `
+    <br><br>
+    <strong>🏁 Test Finished!</strong>
+    <span class="result-detail">Score: ${correct}/${TOTAL_ROUNDS} (${pct}%) · Avg Error: ${avgErr}°</span>
+    <span class="result-detail" style="margin-top:0.4rem;display:block">
+      <button onclick="resetGame()" style="
+        background:none; border:2px solid currentColor; padding:0.4rem 1rem;
+        font-family:'Roboto Mono',monospace; font-size:0.75rem;
+        font-weight:700; cursor:pointer; color:inherit; margin-top:0.5rem; border-radius:0.5rem;
+      ">↺ Try Again</button>
+    </span>
+  `;
+  playBtn.disabled = true;
+}
+
+function resetGame() {
+  round      = 1;
+  correct    = 0;
+  totalErrors = [];
+  historyList.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:0.5rem">No rounds played yet</div>';
+  scoreCorrect.textContent = 0;
+  scoreTotal.textContent   = 0;
+  scoreAvgErr.textContent  = '—';
+  startRound();
+}
+
+// ─── View Utilities ───────────────────────────────────────────────────────────
+function showLoading(show) {
+  loadingOverlay.style.display = show ? 'flex' : 'none';
+}
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.style.display = 'block';
+}
+
+// ─── Input Receivers ──────────────────────────────────────────────────────────
+playBtn.addEventListener('click', async () => {
+  if (!isPlaying) await playSound();
+});
+
+submitBtn.addEventListener('click', () => {
+  if (!answered) submitAnswer();
+});
+
+nextBtn.addEventListener('click', () => {
+  round++;
+  nextBtn.style.display = 'none';
+  startRound();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && !playBtn.disabled)   { e.preventDefault(); playBtn.click(); }
+  if (e.code === 'Enter' && !submitBtn.disabled)  submitBtn.click();
+  if (e.code === 'ArrowRight' && nextBtn.style.display !== 'none') nextBtn.click();
+});
+
+document.addEventListener('click', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}, { once: false });
+
+init();
+</script>
+</body>
+</html>
