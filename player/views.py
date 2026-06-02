@@ -19,9 +19,9 @@ def eq_trainer(request):
 def index(request):
     return render(request, 'player/index.html')
 
-def loudness-ab(request):
+def loudness_ab(request):
     """Render the EQ trainer game page."""
-    return render(request, 'player/loudness-ab.html')
+    return render(request, 'player/loudness_ab.html')
 
 def spatial(request):
     """Render the Spatial trainer game page."""
