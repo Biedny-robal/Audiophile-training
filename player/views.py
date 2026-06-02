@@ -139,14 +139,20 @@ def loudness_audio(request):
     if not os.path.exists(AUDIO_FILE):
         raise Http404(f"{audio_filename} not found in audio directory.")
     
+    mode = request.GET.get("mode","boost")
     version = request.GET.get("version", "A")
     louder  = request.GET.get("louder", "A")
     gain    = float(request.GET.get("gain", 2))
-
-    if version == louder:
-        eq_filter = f"volume={gain}dB"
+    if mode == "boost":
+        if version == louder:
+            eq_filter = f"volume={gain}dB"
+        else:
+            eq_filter = "volume=0dB"
     else:
-        eq_filter = "volume=0dB"
+        if version == louder:
+            eq_filter = "volume=0dB"
+        else:
+            eq_filter = f"volume=-{gain}dB"
     
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
         tmp_path = tmp.name

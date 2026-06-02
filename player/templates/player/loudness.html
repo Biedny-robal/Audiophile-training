@@ -72,7 +72,6 @@ let louderVersion = null;
 let gainDb = null;
 
 const gainLevels = [0.5, 1, 2, 3, 5, 8];
-
 const AnswerIndicator = document.getElementById("AnswerIndicator");
 const SubmitNextBtn   = document.getElementById("SubmitNextBtn");
 const InnerBox        = document.getElementById("InnerBox");
@@ -82,6 +81,9 @@ const PlayABtn        = document.getElementById("PlayABtn");
 const PlayBBtn        = document.getElementById("PlayBBtn");
 
 const fileSelector    = document.getElementById("fileSelector");
+function randomMode() {
+  return Math.random() > 0.5 ? "boost": "cut";
+}
 
 function randomGain() {
   return gainLevels[Math.floor(Math.random() * gainLevels.length)];
@@ -130,6 +132,7 @@ PlayABtn.addEventListener('click', async () => {
       `/loudness_audio/?` +
       `version=A` +
       `&louder=${louderVersion}` +
+      `&mode=${mode}` +
       `&gain=${gainDb}` +
       `&file=${encodeURIComponent(selectedFile)}`;
 
@@ -173,6 +176,7 @@ PlayBBtn.addEventListener('click', async () => {
       `/loudness_audio/?` +
       `version=B` +
       `&louder=${louderVersion}` +
+      `&mode=${mode}` +
       `&gain=${gainDb}` +
       `&file=${encodeURIComponent(selectedFile)}`;
 
@@ -205,7 +209,9 @@ function submit() {
   stopPlayback();
 
   const selected = document.querySelector('input[name="answer"]:checked');
-
+  console.log(
+  document.querySelector('input[name="answer"]:checked')
+  );
   if (!selected) {
     AnswerIndicator.textContent = "Select an answer first.";
     return;
@@ -237,19 +243,14 @@ function submit() {
   });
 
   SubmitNextBtn.textContent = "Next";
-
   SubmitNextBtn.onclick = next;
 
-
-  {% comment %} SubmitNextBtn.textContent = "Next";
-
-  SubmitNextBtn.removeEventListener("click", submit);
-  SubmitNextBtn.addEventListener("click", next, { once: true }); {% endcomment %}
 }
 
 function next() {
 
   generateRound();
+  
   AnswerIndicator.textContent = "Which sound is louder?";
   AnswerIndicator.style.color = "";
 
@@ -262,16 +263,21 @@ function next() {
     r.disabled = false;
   });
 
-  SubmitNextBtn.addEventListener("click", submit, { once: true });
+  SubmitNextBtn.textContent = "Submit";
+  SubmitNextBtn.onclick = submit;
 }
 
 function generateRound() {
   louderVersion = randomVersion();
   gainDb = randomGain();
+  mode = randomMode();
+  console.log("NEW ROUND");
+  console.log(louderVersion);
+  console.log(gainDb);
+  console.log(mode);
 }
 
-SubmitNextBtn.addEventListener("click", submit, { once: true });
-
+SubmitNextBtn.onclick = submit;
 generateRound();
 
 </script>
