@@ -21,7 +21,7 @@ def index(request):
 
 def loudness(request):
     """Render the EQ trainer game page."""
-    return render(request, 'player/loudness.html')
+    return render(request, 'player/loudness-ab.html')
 
 def serve_audio(request):
     """
