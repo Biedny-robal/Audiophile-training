@@ -18,70 +18,74 @@
   </div>
 
   <div class="Box" id="InnerBox">
-    <h2 class="AnswerIndicator" id="AnswerIndicator">Bandwidth hearing test</h2>
-    <h3 class="TaskDescription">Select which sample sounds better</h3>
+    <h2 class="AnswerIndicator" id="AnswerIndicator">Which sample matches reference X?</h2>
+    <h3 class="TaskDescription">Play X, A and B - pick whether A or B is identical to the reference.</h3>
     <h3 class="status" id="status">READY</h3>
-        <ul class="radioList">
-            <li class="radioLi">
-                <input type="radio" id="X" name="X" value="ref">
-                <label for="X">X</label>
-            </li>
-            <li class="radioLi">
-                <input type="radio" id="A" name="A" value="">
-                <label for="A">A</label>
-            </li>
-            <li class="radioLi">
-                <input type="radio" id="B" name="B" value="">
-                <label for="B">B</label>
-            </li>
-        </ul>
-
+    <p class="TaskDescription" id="score">Score: 0 / 0 (0%)</p>
     <div class="bottom-controls">
-      <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
+      <button type="button" id="PlayXBtn" class="PlayStopBtn">Play X</button>
+      <button type="button" id="PlayABtn" class="PlayStopBtn">Play A</button>
+      <button type="button" id="PlayBBtn" class="PlayStopBtn">Play B</button>
       <div class="file-selector-group">
         <select class="file-selector" id="fileSelector">
           <option value="Gray_noise.wav" selected>Gray_noise.wav</option>
-          <option value="sample.wav">sample.wav</option>
+          <option value="demicheli_geminiani_pieces_allegro-in-f-major.wav">demicheli_geminiani_pieces_allegro.wav</option>
+          <option value="elysium_anonymous-elysium_the-young-false-man.wav">elysium_anonymous-elysium_the-young-false-man.wav</option>
+          <option value="fiati-di-parma_thuille_terzo-tempo_sestetto.wav">fiati-di-parma_thuille_terzo-tempo_sestetto.wav</option>
         </select>
         <p class="file-selector-desc">audio source</p>
       </div>
       <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit answer</button>
     </div>
+
+        <ul class="radioList">
+            <li class="radioLi">
+                <input type="radio" id="ansA" name="answer" value="A">
+                <label for="ansA">A = X</label>
+            </li>
+            <li class="radioLi">
+                <input type="radio" id="ansB" name="answer" value="B">
+                <label for="ansB">B = X</label>
+            </li>
+        </ul>
   </div>
 
   <script>
     // === DOM REFERENCES ===
     const AnsIndicator  = document.getElementById('AnswerIndicator');
-    const PlayStopBtn   = document.getElementById('PlayStopBtn');
-    const XAB           = document.getElemntByType('radio');
+    const PlayXBtn      = document.getElementById('PlayXBtn');
+    const PlayABtn      = document.getElementById('PlayABtn');
+    const PlayBBtn      = document.getElementById('PlayBBtn');
     const SubmitNextBtn = document.getElementById('SubmitNextBtn');
     const InnerBox      = document.getElementById('InnerBox');
     const statusEl      = document.getElementById('status');
     const fileSelector  = document.getElementById('fileSelector');
+    const scoreEl       = document.getElementById('score');
 
     let audioCtx;
     let audioBuffer = null;
-    let audioBufferRef = null;
     let currentSource = null;
-    
-    const bandfilterPairs = [(0,44000),(50, 18000),(70, 16000),(90,14000),(110,12000),(140,10000),(200,8000),(250,6500)]; // pary dla filtra z OJD lab 1
+    let currentLabel = null;
+    let round = null; 
+    let matchVersion = null;
+    let score = 0;
+    let attempts = 0;
+
+    const bandfilterPairs = [[0,44000],[50,18000],[70,16000],[90,14000],[110,12000],[140,10000],[200,8000],[250,6500]]; // pary z OJD lab 1
 
     // Load audio from Django once per selector change
     async function loadAudioFile(filename) {
         if (!audioCtx) {
             audioCtx = new AudioContext();
         }
-        if (currentSource){
-            currentSource.stop();
-        }
+        stopPlayback();
 
-        const url = `/audio/?file=${encodeURIComponent(filename)}`;
+        const url = `/bandwidth-trainer/?file=${encodeURIComponent(filename)}`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error('Failed to load audio: ' + resp.statusText);
         const arrayBuffer = await resp.arrayBuffer();
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        audioBufferRef = audioBuffer;
-    }   
+    }
 
         fileSelector.addEventListener('change', (e) => {
             loadAudioFile(e.target.value).catch(err => {
@@ -89,35 +93,74 @@
             });
         });
     
-        // Initial load
         loadAudioFile(fileSelector.value).catch(err => {
             setStatus('ERROR: ' + err.message, 'error');
         });
 
+    
     function CreateNewBandwidthTest() {
+        const i = Math.floor(Math.random() * bandfilterPairs.length);
+        let   j = Math.floor(Math.random() * bandfilterPairs.length);
+        while (j === i) j = Math.floor(Math.random() * bandfilterPairs.length);
+        const ref = bandfilterPairs[i], alt = bandfilterPairs[j];
+        matchVersion = Math.random() < 0.5 ? 'A' : 'B';
+        round = {
+            X: ref,
+            A: matchVersion === 'A' ? ref : alt,
+            B: matchVersion === 'B' ? ref : alt,
+        };
+    }
+    // https://developer.mozilla.org/en-US/docs/Web/API/BiquadFilterNode
+    function playSample(pair, label, btn) {
+        if (currentLabel === label) { stopPlayback(); return; }  
+        stopPlayback();
         if (!audioBuffer) {
             setStatus('Audio not loaded yet, please wait...', 'error');
             return;
         }
-        // Randomly select a bandwidth from the pairs
-        const randomIndex = Math.floor(Math.random() * bandfilterPairs.length);
-        const [lowFreq, highFreq] = bandfilterPairs[randomIndex];
-        
-        const source = audioCtx.createBufferSource(buffer=audioBuffer);
-        const bandpass = audioCtx.createBiquadFilter(type='bandpass', frequency=(lowFreq + highFreq) / 2, Q=(highFreq - lowFreq) / (lowFreq + highFreq)); // https://developer.mozilla.org/en-US/docs/Web/API/BiquadFilterNode
-        source.connect(bandpass).connect(audioCtx.destination);
-    }
-    
-    function playSample(){
+        if (audioCtx.state === 'suspended') audioCtx.resume();
 
+        const [lowFreq, highFreq] = pair;
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.loop = true;
+
+        const highpass = audioCtx.createBiquadFilter();
+        highpass.type = 'highpass';
+        highpass.frequency.value = lowFreq;
+        highpass.Q.value = 0.7071;
+
+        const lowpass = audioCtx.createBiquadFilter();
+        lowpass.type = 'lowpass';
+        lowpass.frequency.value = highFreq;
+        lowpass.Q.value = 0.7071;
+
+        source.connect(highpass).connect(lowpass).connect(audioCtx.destination);
+        source.start();
+
+        currentSource = source;
+        currentLabel = label;
+        btn.textContent = 'Stop ' + label;
+        setStatus('PLAYING ' + label);
+    }
+
+    function fmtBand(pair) {
+      const [low, high] = pair;
+      return low + '–' + high + ' Hz';
+    }
+
+    function updateScore() {
+      const pct = attempts ? Math.round((score / attempts) * 100) : 0;
+      scoreEl.textContent = "Score: " + score + " / " + attempts + " (" + pct + "%)";
     }
 
     // === SUBMIT ===
     function submit() {
       stopPlayback();
 
-      if (XAB == null) {
-        // Warning – yellow
+      const selected = document.querySelector('input[name="answer"]:checked');
+
+      if (selected == null) {
         AnsIndicator.textContent   = "You must select an answer before submitting.";
         AnsIndicator.style.color   = "";              // keep default text color
         InnerBox.style.borderColor = "#d4b800";
@@ -126,81 +169,79 @@
         return;
       }
 
-      if (XAB  == targetFreq.toString() + "Hz") {
-        //Correct – green
-        AnsIndicator.textContent   = "Correct Answer!";
-        AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency 
+      attempts++;
+
+      const other = matchVersion === 'A' ? 'B' : 'A';
+
+      if (selected.value === matchVersion) {
+        score++;
+        AnsIndicator.textContent   = "Correct! X = " + matchVersion + " (band " + fmtBand(round.X) + "). Odd one was " + other + " (" + fmtBand(round[other]) + ").";
+        AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency
         InnerBox.style.borderColor = "var(--accent2)";
         InnerBox.style.background  = "rgba(129,244,149,0.10)";
         statusEl.style.color       = "var(--accent2)";
       } else {
-        //Wrong - red
-        AnsIndicator.textContent   = "Incorrect Answer :(, the correct frequency was: "+targetFreq+"Hz";
-        AnsIndicator.style.color   = "var(--wrong-light)";       
-        InnerBox.style.borderColor = "var(--wrong-hard)";       
+        AnsIndicator.textContent   = "Incorrect :( X = " + matchVersion + " (band " + fmtBand(round.X) + "). You picked " + selected.value + " (" + fmtBand(round[selected.value]) + ").";
+        AnsIndicator.style.color   = "var(--wrong-light)";
+        InnerBox.style.borderColor = "var(--wrong-hard)";
         InnerBox.style.background  = "rgba(255,111,89,0.10)";
-        statusEl.style.color       = "var(--wrong-light)";       
+        statusEl.style.color       = "var(--wrong-light)";
       }
 
+      updateScore();
+
       //Disable radios
-      XAB.forEach(function(radio) { radio.disabled = true; });
+      document.querySelectorAll('input[name="answer"]').forEach(function(radio) { radio.disabled = true; });
 
       SubmitNextBtn.textContent = "Next";
       SubmitNextBtn.addEventListener('click', next, { once: true });
     }
 
     function next() {
-      // Re-enable radios
-      XAB.forEach(function(radio) { radio.disabled = false; });
-      // Reset answer indicator
-      AnsIndicator.textContent = "Submit Answer";
-      AnsIndicator.style.color = "";               // back to CSS default
-      // Uncheck any selected radio
-      const checked = document.querySelector('input[name="freq"]:checked');
-      if (checked) checked.checked = false;
-      // Reset button label
+      stopPlayback();
+
+      CreateNewBandwidthTest();
+      document.querySelectorAll('input[name="answer"]').forEach(function(radio) { radio.disabled = false; radio.checked = false; });
+
+      AnsIndicator.textContent = "Which sample matches reference X?";
+      AnsIndicator.style.color = "";              
+
       SubmitNextBtn.textContent = "Submit";
       SubmitNextBtn.addEventListener('click', submit, { once: true });
-      // CHANGE 9: Reset box border/bg to CSS defaults
       InnerBox.style.borderColor = "";
       InnerBox.style.background  = "";
-      // Reset status color to default (var(--accent3))
       statusEl.style.color = "";
-      XAB = null;
     }
 
-    // Attach initial submit listener
+
     SubmitNextBtn.addEventListener('click', submit, { once: true });
 
     // === STATUS HELPER ===
     function setStatus(msg, cls = '') {
       statusEl.textContent = msg;
-      // Preserve any inline color override; only touch className
       statusEl.className   = 'status ' + cls;
     }
 
     // === STOP PLAYBACK ===
     function stopPlayback() {
-      if (audio) {
-        audio.pause();
-        audio.src = '';
-        audio = null;
+      if (currentSource) {
+        currentSource.onended = null;
+        try { currentSource.stop(); } catch (e) {}
+        currentSource = null;
       }
-      PlayStopBtn.textContent = "Play";
-      PlayStopBtn.classList.remove('playing');
+      currentLabel = null;
+      PlayXBtn.textContent = "Play X";
+      PlayABtn.textContent = "Play A";
+      PlayBBtn.textContent = "Play B";
       setStatus('READY');
     }
 
     // === PLAY / STOP ===
-    PlayStopBtn.addEventListener('click', async () => {
-      if (currentSource){
-            currentSource.stop();
-        }
-        if (!audioBuffer) {
-            setStatus('Audio not loaded yet, please wait...', 'error');
-            return;
-        }
-    });
+    PlayXBtn.addEventListener('click', () => playSample(round.X, 'X', PlayXBtn));
+    PlayABtn.addEventListener('click', () => playSample(round.A, 'A', PlayABtn));
+    PlayBBtn.addEventListener('click', () => playSample(round.B, 'B', PlayBBtn));
+
+    CreateNewBandwidthTest();
   </script>
 </body>
 </html>
