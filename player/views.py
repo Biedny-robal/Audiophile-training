@@ -14,14 +14,17 @@ def menu(request):
     """Render the main menu page."""
     return render(request, 'player/menu.html')
 
-
-def index(request):
+def eq_trainer(request):
     """Render the EQ trainer game page."""
-    return render(request, 'player/index.html')
+    return render(request, 'player/eq_trainer.html')
 
 def loudness(request):
     """Render the EQ trainer game page."""
     return render(request, 'player/loudness-ab.html')
+
+def spatial(request):
+    """Render the Spatial trainer game page."""
+    return render(request, 'player/spatial.html')
 
 def serve_audio(request):
     """
