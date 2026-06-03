@@ -26,6 +26,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+                'player.context_processors.audio_files',
             ],
         },
     },

@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <title>EQ Trainer — Menu</title>
+  <title>EQ Trainer - Menu</title>
   <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/menu.css' %}">
 </head>
@@ -25,7 +25,7 @@
         <span class="mode-icon">#</span>
         <div class="mode-info">
           <span class="mode-name">Frequency Identification</span>
-          <span class="mode-desc">Hear an EQ boost — identify which band was changed</span>
+          <span class="mode-desc">Hear an EQ boost - identify which band was changed</span>
         </div>
         <span class="mode-badge badge-ready">Ready</span>
         <span class="mode-arrow">→</span>
@@ -34,40 +34,36 @@
         <span class="mode-icon">~</span>
         <div class="mode-info">
           <span class="mode-name">Loudness AB Test</span>
-          <span class="mode-desc">Compare two clips — identify which is louder</span>
+          <span class="mode-desc">Compare two clips - identify which is louder</span>
         </div>
           <span class="mode-badge badge-ready">Ready</span>
           <span class="mode-arrow">→</span>
       </a>
 
-      <a href="/bandwidth-trainer">
-        <div class="mode-card">
-          <span class="mode-icon">≠</span>
-            <div class="mode-info">
-              <span class="mode-name">Frequency Response AB Test</span>
-              <span class="mode-desc">Compare two EQ curves - identify which sounds worse</span>
-            </div>
-          <span class="mode-badge badge-ready">Ready</span>
-          <span class="mode-arrow">→</span>
+      <a href="/bandwidth-trainer/" class="mode-card">
+        <span class="mode-icon">≠</span>
+        <div class="mode-info">
+          <span class="mode-name">Frequency Response AB Test</span>
+          <span class="mode-desc">Compare two EQ curves - identify which sounds worse</span>
         </div>
+        <span class="mode-badge badge-ready">Ready</span>
+        <span class="mode-arrow">→</span>
       </a>
-      <a href = "/spatial">
-        <div class="mode-card">
-          <span class="mode-icon">◎</span>
-          <div class="mode-info">
-            <span class="mode-name">Spatial Audio</span>
-            <span class="mode-desc">Identify the direction a sound is coming from</span>
-          </div>
-          <span class="mode-badge badge-ready">Ready</span>
-          <span class="mode-arrow">→</span>
+      <a href="/spatial/" class="mode-card">
+        <span class="mode-icon">◎</span>
+        <div class="mode-info">
+          <span class="mode-name">Spatial Audio</span>
+          <span class="mode-desc">Identify the direction a sound is coming from</span>
         </div>
+        <span class="mode-badge badge-ready">Ready</span>
+        <span class="mode-arrow">→</span>
       </a>
 
       <a href="/loudness/" class="mode-card">
         <span class="mode-icon">Δ</span>
         <div class="mode-info">
-          <span class="mode-name">Loudness Delta — Electronic Boogaloo</span>
-          <span class="mode-desc">Hear two clips — estimate the dB difference between them</span>
+          <span class="mode-name">Loudness Delta - Electronic Boogaloo</span>
+          <span class="mode-desc">Hear two clips - estimate the dB difference between them</span>
         </div>
         <span class="mode-badge badge-ready">Ready</span>
         <span class="mode-arrow">→</span>
@@ -76,7 +72,7 @@
     </div>
 
     <hr class="divider">
-    <p class="footer-text">more modes coming soon</p>
+    {% comment %} <p class="footer-text">more modes coming soon</p> {% endcomment %}
   </div>
 </body>
 </html>

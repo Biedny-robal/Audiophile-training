@@ -161,13 +161,7 @@
 
     // ── All available audio files ─────────────────────────────────────
     // Add filenames here as you add files to the /audio/ directory.
-    const AUDIO_FILES = [
-      'Gray_noise.wav',
-      'sample.wav',
-      'demicheli_geminiani_pieces_allegro-in-f-major.wav',
-      'elysium_anonymous-elysium_the-young-false-man.wav',
-      'fiati-di-parma_thuille_terzo-tempo_sestetto.wav',
-    ];
+    const AUDIO_FILES = {{ audio_files_json|safe }};
 
     // ── Config ────────────────────────────────────────────────────────
     const cfg = {

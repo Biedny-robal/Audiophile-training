@@ -65,6 +65,15 @@
       </div>
     </div>
 
+    <div class="file-selector-group" style="margin-bottom:0.6rem">
+      <select class="file-selector" id="fileSelector">
+        {% for f in audio_files %}
+        <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
+        {% endfor %}
+      </select>
+      <p class="file-selector-desc">audio source</p>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-play" id="playBtn" disabled>
         <span id="playIcon">▶</span>
@@ -95,7 +104,7 @@
 // ─── Config ───────────────────────────────────────────────────────────────────
 const TOTAL_ROUNDS    = 10;
 const ERROR_MARGIN_DEG = 5;   // ±5° window threshold
-const AUDIO_ENDPOINT  = '/api/audio/test-clip/'; 
+// audio source files are served raw from /raw-audio/?file=<name>
 
 // ─── App Context State ────────────────────────────────────────────────────────
 let audioCtx        = null;
@@ -128,27 +137,38 @@ const scoreCorrect     = document.getElementById('scoreCorrect');
 const scoreTotal       = document.getElementById('scoreTotal');
 const scoreAvgErr      = document.getElementById('scoreAvgErr');
 const historyList      = document.getElementById('historyList');
+const fileSelector     = document.getElementById('fileSelector');
 
 // ─── Init App Pipeline ────────────────────────────────────────────────────────
-async function init() {
+async function loadAudioFile(filename) {
   showLoading(true);
   try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    const response = await fetch(AUDIO_ENDPOINT);
+    const response = await fetch('/raw-audio/?file=' + encodeURIComponent(filename));
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     const arrayBuffer = await response.arrayBuffer();
     audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
     showLoading(false);
-    startRound();
   } catch (err) {
     showLoading(false);
-    showError(`Failed to load audio: ${err.message}. Check the backend is running.`);
+    showError(`Failed to load audio: ${err.message}. Using a generated test tone.`);
     await fallbackToOscillator();
-    startRound();
   }
 }
+
+async function init() {
+  await loadAudioFile(fileSelector.value);
+  startRound();
+}
+
+// Reload the buffer when the user picks a different source file
+fileSelector.addEventListener('change', async () => {
+  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+  isPlaying = false;
+  await loadAudioFile(fileSelector.value);
+});
 
 async function fallbackToOscillator() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
