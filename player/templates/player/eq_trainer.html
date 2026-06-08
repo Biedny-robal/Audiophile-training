@@ -70,13 +70,20 @@
       </div>
       <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
     </div>
+     <div class="score-area">
+        <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
+        <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
+        <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+      </div>
   </div>
 
   <script>
     // === STATE ===
     let audio    = null;
     var freq     = null;
-
+    let correct = 0;
+    let wrong = 0;
+    let streak = 0;
     // Frequency map: index string -> Hz number
     let freqValues = new Map();
     freqValues.set("0", 60);
@@ -97,6 +104,9 @@
     const InnerBox      = document.getElementById('InnerBox');
     const statusEl      = document.getElementById('status');
     const fileSelector  = document.getElementById('fileSelector');
+    const scoreCorrectEl = document.getElementById("scoreCorrect");
+    const scoreWrongEl   = document.getElementById("scoreWrong");
+    const scoreStreakEl  = document.getElementById("scoreStreak");
 
     // Pick an initial random target frequency
     var targetFreq = freqValues.get(newFreq());
@@ -113,6 +123,13 @@
     function newFreq() {
       return Math.floor(Math.random() * 9).toString();
     }
+
+    function updateScore() {
+      scoreCorrectEl.textContent = "✓ " + correct;
+      scoreWrongEl.textContent   = "✗ " + wrong;
+      scoreStreakEl.textContent  = "↯ " + streak;
+    }
+
 
     // === SUBMIT ===
     function submit() {
@@ -135,13 +152,17 @@
         InnerBox.style.borderColor = "var(--accent2)";
         InnerBox.style.background  = "rgba(129,244,149,0.10)";
         statusEl.style.color       = "var(--accent2)";
+        correct++;
+        streak++;
       } else {
         //Wrong - red
         AnsIndicator.textContent   = "Incorrect Answer :(, the correct frequency was: "+targetFreq+"Hz";
         AnsIndicator.style.color   = "var(--wrong-light)";       
         InnerBox.style.borderColor = "var(--wrong-hard)";       
         InnerBox.style.background  = "rgba(255,111,89,0.10)";
-        statusEl.style.color       = "var(--wrong-light)";       
+        statusEl.style.color       = "var(--wrong-light)"; 
+        wrong++;
+        streak=0;      
       }
 
       //Disable radios
@@ -149,6 +170,7 @@
 
       SubmitNextBtn.textContent = "Next";
       SubmitNextBtn.addEventListener('click', next, { once: true });
+      updateScore();
     }
 
     function next() {
