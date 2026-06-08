@@ -12,7 +12,9 @@
   <link rel="stylesheet" href="{% static 'player/css/spatial.css' %}">
 </head>
 <body>
-
+<button id="HomeBtn"  class="corner-btn">
+  ← Menu
+</button>
 <div class="container">
   <div class="error-banner" id="errorBanner"></div>
 
@@ -169,7 +171,9 @@ fileSelector.addEventListener('change', async () => {
   isPlaying = false;
   await loadAudioFile(fileSelector.value);
 });
-
+document.getElementById("HomeBtn").addEventListener("click", () => {
+      window.location.href = "/";
+    });
 async function fallbackToOscillator() {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const sampleRate = audioCtx.sampleRate;

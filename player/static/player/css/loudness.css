@@ -428,3 +428,26 @@ details[open] .settings-toggle::before { content: '▼ '; }
   color: var(--accent3);
   pointer-events: none;
 }
+.corner-btn {
+    flex: 1;
+    padding: clamp(0.45rem, 1.3vw, 0.75rem) clamp(0.6rem, 1.8vw, 1rem);
+    border: 2px solid var(--accent2);
+    border-radius: 0.6rem;
+    background: transparent;
+    color: var(--accent2);
+    font-family: 'Roboto Mono', monospace;
+    font-size: clamp(0.8rem, 1.8vw, 1rem);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+}
+.corner-btn:hover {
+    background: var(--accent2);
+    color: var(--bg);
+}
+.corner-btn {
+          position:fixed;
+          top:20px;
+          left:20px;
+          z-index:9999;
+}

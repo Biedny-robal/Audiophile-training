@@ -12,6 +12,9 @@
   <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
 </head>
 <body>
+  <button id="HomeBtn"  class="corner-btn">
+  ← Menu
+</button>
   <div class="aspect-overlay" id="aspectOverlay">
     <h2>Please rotate or resize!</h2>
     <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
@@ -108,6 +111,9 @@
     const scoreWrongEl   = document.getElementById("scoreWrong");
     const scoreStreakEl  = document.getElementById("scoreStreak");
 
+    document.getElementById("HomeBtn").addEventListener("click", () => {
+    window.location.href = "/";
+});
     // Pick an initial random target frequency
     var targetFreq = freqValues.get(newFreq());
     console.log('Target freq:', targetFreq);
