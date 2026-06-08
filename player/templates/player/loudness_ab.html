@@ -15,7 +15,9 @@
 </head>
 
 <body>
-
+<button id="HomeBtn"  class="corner-btn">
+  ← Menu
+</button>
 <div class="Box" id="InnerBox">
 
   <h2 class="AnswerIndicator" id="AnswerIndicator">
@@ -95,6 +97,10 @@ const scoreCorrectEl = document.getElementById("scoreCorrect");
 const scoreWrongEl   = document.getElementById("scoreWrong");
 const scoreStreakEl  = document.getElementById("scoreStreak");
 
+
+document.getElementById("HomeBtn").addEventListener("click", () => {
+    window.location.href = "/";
+});
 function randomMode() {
   return Math.random() > 0.5 ? "boost": "cut";
 }
