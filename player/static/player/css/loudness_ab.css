@@ -337,12 +337,6 @@ details[open] .settings-toggle::before { content: '▼ '; }
   padding: clamp(0.6rem, 1.5vw, 1rem);
   border-top: 1px solid var(--accent1-muted);
 }
-.setting-row {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.4rem, 1vw, 0.7rem);
-  flex-wrap: wrap;
-}
 .setting-label {
   font-size: clamp(0.62rem, 1.3vw, 0.72rem);
   color: var(--text-muted);

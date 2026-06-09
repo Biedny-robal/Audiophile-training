@@ -276,6 +276,7 @@ details[open] .settings-toggle::before { content: '▼ '; }
   align-items: center;
   gap: clamp(0.4rem, 1vw, 0.7rem);
   flex-wrap: wrap;
+  justify-content: space-between;
 }
 .setting-label {
   font-size: clamp(0.62rem, 1.3vw, 0.72rem);
