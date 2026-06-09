@@ -4,312 +4,667 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght=400;500;700&display=swap" rel="stylesheet">
   <title>Loudness AB Trainer</title>
-
   <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/loudness_ab.css' %}">
 </head>
 
 <body>
-<button id="HomeBtn"  class="corner-btn">
+<button id="HomeBtn" class="corner-btn">
   ← Menu
 </button>
+
+<div class="aspect-overlay" id="aspectOverlay">
+  <h2>Please rotate or resize!</h2>
+  <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
+</div>
+
 <div class="Box" id="InnerBox">
 
-  <h2 class="AnswerIndicator" id="AnswerIndicator">
-    Which sound is louder?
-  </h2>
-
+  <h2 class="AnswerIndicator" id="AnswerIndicator">Which sound is louder?</h2>
+  <h3 class="TaskDescription">Compare A and B — select which one has a higher volume level.</h3>
   <h3 class="status" id="status">READY</h3>
 
   <div class="bottom-controls">
-
-    <button id="PlayABtn" class="PlayStopBtn">
-      Play A
-    </button>
-
-    <button id="PlayBBtn" class="PlayStopBtn">
-      Play B
-    </button>
-
-    <div class="file-selector-group">
-      <select class="file-selector" id="fileSelector">
-        {% for f in audio_files %}
-        <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
-        {% endfor %}
-      </select>
-      <p class="file-selector-desc">audio source</p>
-    </div>
-
+    <button id="PlayABtn" class="PlayStopBtn">Play A</button>
+    <button id="PlayBBtn" class="PlayStopBtn">Play B</button>
   </div>
 
-  <ul class="radioList">
+  <div class="waveform-wrap">
+    <span class="loop-time-label" id="loopInLabel">0.00s</span>
+    <div class="waveform-container" id="waveContainer">
+      <canvas id="waveCanvas"></canvas>
+      <div class="loop-overlay" id="loopOverlay">
+        <div class="loop-region-fill" id="loopFill"></div>
+        <div class="loop-handle loop-handle-in"  id="handleIn"></div>
+        <div class="loop-handle loop-handle-out" id="handleOut"></div>
+      </div>
+      <div class="wave-rendering-badge" id="renderBadge" hidden>rendering…</div>
+    </div>
+    <span class="loop-time-label loop-time-right" id="loopOutLabel">—</span>
+  </div>
 
+  <details class="settings-panel">
+    <summary class="settings-toggle">// settings</summary>
+    <div class="settings-body">
+
+      <div class="setting-row">
+        <span class="setting-label">Preset difficulty</span>
+        <div class="chip-row" id="presetRow">
+          <button class="chip active" data-min="6" data-max="12" data-step="3">Easy</button>
+          <button class="chip" data-min="3" data-max="9"   data-step="3">Medium</button>
+          <button class="chip" data-min="1" data-max="6"   data-step="1">Hard</button>
+          <button class="chip" data-min="0.5" data-max="3" data-step="0.5">Expert</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Min difference</span>
+        <input type="range" id="slMin" min="0.5" max="12" step="0.5" value="6">
+        <span class="setting-val" id="valMin">6 dB</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Max difference</span>
+        <input type="range" id="slMax" min="0.5" max="24" step="0.5" value="12">
+        <span class="setting-val" id="valMax">12 dB</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Step size</span>
+        <input type="range" id="slStep" min="0.5" max="6" step="0.5" value="3">
+        <span class="setting-val" id="valStep">3 dB</span>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-row">
+        <span class="setting-label">Loop X-Fade</span>
+        <input type="range" id="slLoopFade" min="0" max="100" step="5" value="20">
+        <span class="setting-val" id="valLoopFade">20 ms</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">A/B Switch X-Fade</span>
+        <input type="range" id="slSwitchFade" min="0" max="100" step="5" value="15">
+        <span class="setting-val" id="valSwitchFade">15 ms</span>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Loop transition</span>
+        <div class="chip-row" id="loopModeRow">
+          <button class="chip active" data-mode="current">Keep current moment</button>
+          <button class="chip" data-mode="start">Restart loop</button>
+        </div>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-row">
+        <span class="setting-label">Selection Mode</span>
+        <div class="chip-row" id="sourceModeRow">
+          <button class="chip active" id="btnModeFixed">Fixed Single</button>
+          <button class="chip" id="btnModeShuffle">Shuffle Playlist</button>
+        </div>
+      </div>
+
+      <div class="setting-row" id="fixedSourceRow">
+        <span class="setting-label">Audio source</span>
+        <select class="file-selector" id="fileSelector">
+          {% for f in audio_files %}
+          <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="setting-row setting-row-top" id="shuffleSourceRow" style="display: none;">
+        <span class="setting-label">Shuffle playlist</span>
+        <div class="source-list">
+          {% for f in audio_files %}
+          <label class="source-item">
+            <input type="checkbox" class="shuffle-track-cb" value="{{ f }}" checked>
+            <span>{{ f }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </details>
+
+  <ul class="radioList">
     <li class="radioLi">
       <input type="radio" id="A" name="answer" value="A">
       <label for="A">A is louder</label>
     </li>
-
     <li class="radioLi">
       <input type="radio" id="B" name="answer" value="B">
       <label for="B">B is louder</label>
     </li>
-
   </ul>
 
-  <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">
-    Submit
-  </button>
+  <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
 
-      <div class="score-area">
-        <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
-        <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
-        <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
-      </div>
+  <div class="score-area">
+    <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
+    <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
+    <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+  </div>
 </div>
 
 <script>
+(function() {
+  const AC = new (window.AudioContext || window.webkitAudioContext)();
 
-let audioA = null;
-let audioB = null;
-let louderVersion = null;
-let gainDb = null;
-let correct = 0;
-let wrong = 0;
-let streak = 0;
+  const cfg = {
+    rangeMin: 6,
+    rangeMax: 12,
+    stepSize: 3,
+    loopFadeSecs: 0.020,     // Regulowane suwakiem
+    switchFadeSecs: 0.015,   // Regulowane suwakiem
+    loopRestartOnSwitch: false, // Konfigurowalne (false = obecny moment, true = od poczatku)
+    isShuffleMode: false
+  };
 
-const gainLevels = [0.5, 1, 2, 3, 5, 8];
-const AnswerIndicator = document.getElementById("AnswerIndicator");
-const SubmitNextBtn   = document.getElementById("SubmitNextBtn");
-const InnerBox        = document.getElementById("InnerBox");
-const statusEl        = document.getElementById("status");
+  let louderVersion = null;
+  let gainDb = null;
+  let answered = false;
+  let correct = 0, wrong = 0, streak = 0;
 
-const PlayABtn        = document.getElementById("PlayABtn");
-const PlayBBtn        = document.getElementById("PlayBBtn");
+  let rawBuffer = null;
+  let loopBuffer = null;
+  let loopIn = 0;
+  let loopOut = 1;
 
-const fileSelector    = document.getElementById("fileSelector");
+  let slotA = null, slotB = null;
+  let activeSlot = null;
+  let playingClip = null;
+  let playStartedAt = 0;
+  let playOffsetStart = 0;
+  let renderTimer = null;
 
-const scoreCorrectEl = document.getElementById("scoreCorrect");
-const scoreWrongEl   = document.getElementById("scoreWrong");
-const scoreStreakEl  = document.getElementById("scoreStreak");
+  // UI Elements
+  const AnswerIndicator = document.getElementById("AnswerIndicator");
+  const SubmitNextBtn   = document.getElementById("SubmitNextBtn");
+  const InnerBox        = document.getElementById("InnerBox");
+  const statusEl        = document.getElementById("status");
+  const PlayABtn        = document.getElementById("PlayABtn");
+  const PlayBBtn        = document.getElementById("PlayBBtn");
+  const fileSelector    = document.getElementById("fileSelector");
 
+  const waveCanvas      = document.getElementById('waveCanvas');
+  const waveContainer   = document.getElementById('waveContainer');
+  const loopOverlay     = document.getElementById('loopOverlay');
+  const loopFill        = document.getElementById('loopFill');
+  const handleIn        = document.getElementById('handleIn');
+  const handleOut       = document.getElementById('handleOut');
+  const loopInLabel     = document.getElementById('loopInLabel');
+  const loopOutLabel    = document.getElementById('loopOutLabel');
+  const renderBadge     = document.getElementById('renderBadge');
 
-document.getElementById("HomeBtn").addEventListener("click", () => {
+  const scoreCorrectEl  = document.getElementById("scoreCorrect");
+  const scoreWrongEl    = document.getElementById("scoreWrong");
+  const scoreStreakEl   = document.getElementById("scoreStreak");
+
+  const fixedSourceRow  = document.getElementById("fixedSourceRow");
+  const shuffleSourceRow= document.getElementById("shuffleSourceRow");
+
+  function dbToLinear(db) { return Math.pow(10, db / 20); }
+  function setStatus(msg) { statusEl.textContent = msg; }
+  function fmt(s)         { return s.toFixed(2) + 's'; }
+  
+  function updateScore() {
+    scoreCorrectEl.textContent = "✓ " + correct;
+    scoreWrongEl.textContent   = "✗ " + wrong;
+    scoreStreakEl.textContent  = "↯ " + streak;
+  }
+
+  document.getElementById("HomeBtn").addEventListener("click", () => {
     window.location.href = "/";
-});
-function randomMode() {
-  return Math.random() > 0.5 ? "boost": "cut";
-}
-
-function randomGain() {
-  return gainLevels[Math.floor(Math.random() * gainLevels.length)];
-}
-
-function randomVersion() {
-  return Math.random() > 0.5 ? "A" : "B";
-}
-
-function setStatus(msg, cls='') {
-  statusEl.textContent = msg;
-  statusEl.className = 'status ' + cls;
-}
-
-function updateScore() {
-  scoreCorrectEl.textContent = "✓ " + correct;
-  scoreWrongEl.textContent   = "✗ " + wrong;
-  scoreStreakEl.textContent  = "↯ " + streak;
-}
-
-function stopPlayback() {
-  if (audioA) {
-    audioA.pause();
-    audioA.src = '';
-    audioA = null;
-  }
-  if (audioB) {
-    audioB.pause();
-    audioB.src = '';
-    audioB = null;
-  }
-
-  PlayABtn.textContent = "Play A";
-  PlayBBtn.textContent = "Play B";
-
-  setStatus("READY");
-}
-
-PlayABtn.addEventListener('click', async () => {
-  if (audioA) {
-    stopPlayback();
-    return;
-  }
-  stopPlayback();
-  setStatus("PROCESSING...", "loading");
-
-  try {
-
-    const selectedFile = fileSelector.value;
-
-    const url =
-      `/loudness_audio/?` +
-      `version=A` +
-      `&louder=${louderVersion}` +
-      `&mode=${mode}` +
-      `&gain=${gainDb}` +
-      `&file=${encodeURIComponent(selectedFile)}`;
-
-    const resp = await fetch(url);
-
-    if (!resp.ok) {
-      throw new Error(await resp.text());
-    }
-
-    const blob = await resp.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    audioA = new Audio(blobUrl);
-
-    audioA.addEventListener('ended', stopPlayback);
-
-    await audioA.play();
-    
-    setStatus("PLAYING A");
-    PlayABtn.textContent = "Stop";
-  } catch (err) {
-    setStatus("ERROR: " + err.message, "error");
-  } finally {
-    PlayABtn.disabled =  false;
-  }
-});
-
-PlayBBtn.addEventListener('click', async () => {
-  if (audioB) {
-    stopPlayback();
-    return;
-  }
-  stopPlayback();
-  setStatus("PROCESSING...", "loading");
-
-  try {
-
-    const selectedFile = fileSelector.value;
-
-    const url =
-      `/loudness_audio/?` +
-      `version=B` +
-      `&louder=${louderVersion}` +
-      `&mode=${mode}` +
-      `&gain=${gainDb}` +
-      `&file=${encodeURIComponent(selectedFile)}`;
-
-    const resp = await fetch(url);
-
-    if (!resp.ok) {
-      throw new Error(await resp.text());
-    }
-
-    const blob = await resp.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    audioB = new Audio(blobUrl);
-
-    audioB.addEventListener('ended', stopPlayback);
-
-    await audioB.play();
-    
-    setStatus("PLAYING B");
-    PlayBBtn.textContent = "Stop";
-  } catch (err) {
-    setStatus("ERROR: " + err.message, "error");
-  } finally {
-    PlayBBtn.disabled =  false;
-  }
-});
-
-function submit() {
-
-  stopPlayback();
-
-  const selected = document.querySelector('input[name="answer"]:checked');
-  console.log(
-  document.querySelector('input[name="answer"]:checked')
-  );
-  if (!selected) {
-    AnswerIndicator.textContent = "Select an answer first.";
-    return;
-  }
-
-  const answer = selected.value;
-
-  if (answer === louderVersion) {
-
-    AnswerIndicator.textContent =
-      `Correct! Difference was ${gainDb} dB`;
-
-    InnerBox.style.borderColor = "var(--accent2)";
-    InnerBox.style.background = "rgba(129,244,149,0.10)";
-    AnswerIndicator.style.color = "var(--accent2)";
-    correct++;
-    streak++;
-
-  } else {
-    wrong++;
-    streak=0;
-    AnswerIndicator.textContent =
-      `Wrong :( Correct: ${louderVersion} (+${gainDb} dB)`;
-
-    InnerBox.style.borderColor = "var(--wrong-hard)";
-    InnerBox.style.background = "rgba(255,111,89,0.10)";
-    AnswerIndicator.style.color = "var(--wrong-light)";
-  }
-
-  document.querySelectorAll('input[name="answer"]').forEach(r => {
-    r.disabled = true;
   });
 
-  SubmitNextBtn.textContent = "Next";
-  SubmitNextBtn.onclick = next;
-  updateScore();
-}
+  // ── Rysowanie fali (Waveform) ───────────────────────────────────
+  function drawWaveform(buf) {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = waveContainer.clientWidth;
+    const H   = waveContainer.clientHeight;
+    waveCanvas.width        = W * dpr;
+    waveCanvas.height       = H * dpr;
+    waveCanvas.style.width  = W + 'px';
+    waveCanvas.style.height = H + 'px';
 
-function next() {
+    const ctx = waveCanvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    if (!buf) {
+      ctx.strokeStyle = 'rgba(142,141,190,0.15)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = (H / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(142,141,190,0.25)';
+      ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+      return;
+    }
+
+    const ch0   = buf.getChannelData(0);
+    const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+    const total = ch0.length;
+    const mid   = H / 2;
+
+    ctx.strokeStyle = 'rgba(142,141,190,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(142,141,190,0.55)';
+    for (let col = 0; col < W; col++) {
+      const s0 = Math.floor((col / W) * total);
+      const s1 = Math.floor(((col + 1) / W) * total);
+      let mn = 0, mx = 0;
+      for (let s = s0; s < s1; s++) {
+        const v = ch1 ? (ch0[s] + ch1[s]) * 0.5 : ch0[s];
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+      }
+      ctx.fillRect(col, mid + mn * mid, 1, Math.max(1, (mx - mn) * mid));
+    }
+  }
+
+  function updateLoopUI() {
+    loopFill.style.left  = (loopIn  * 100) + '%';
+    loopFill.style.width = ((loopOut - loopIn) * 100) + '%';
+    handleIn.style.left  = (loopIn  * 100) + '%';
+    handleOut.style.left = (loopOut * 100) + '%';
+    loopInLabel.textContent  = rawBuffer ? fmt(loopIn  * rawBuffer.duration) : '0.00s';
+    loopOutLabel.textContent = rawBuffer ? fmt(loopOut * rawBuffer.duration) : '--';
+  }
+
+  // ── Renderowanie pętli na kliencie z uwzględnieniem Crossfade ──
+  async function renderLoopBuffer() {
+    if (!rawBuffer) return;
+    renderBadge.hidden = false;
+
+    const sr        = rawBuffer.sampleRate;
+    const nCh       = rawBuffer.numberOfChannels;
+    const inSample  = Math.floor(loopIn  * rawBuffer.length);
+    const outSample = Math.floor(loopOut * rawBuffer.length);
+    const regionLen = Math.max(outSample - inSample, 1);
+
+    const fadeSamples = Math.min(
+      Math.round(cfg.loopFadeSecs * sr),
+      Math.floor(regionLen / 2)
+    );
+
+    let peak = 0;
+    for (let ch = 0; ch < nCh; ch++) {
+      const data = rawBuffer.getChannelData(ch);
+      for (let i = inSample; i < outSample; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    const normaliseGain = peak > 0.001 ? 0.5 / peak : 1.0;
+
+    const out = AC.createBuffer(nCh, regionLen, sr);
+
+    for (let ch = 0; ch < nCh; ch++) {
+      const src = rawBuffer.getChannelData(ch);
+      const dst = out.getChannelData(ch);
+
+      for (let i = 0; i < regionLen; i++) {
+        dst[i] = src[inSample + i] * normaliseGain;
+      }
+
+      for (let f = 0; f < fadeSamples; f++) {
+        const angle   = (f / fadeSamples) * Math.PI * 0.5;
+        const wHead   = Math.sin(angle);
+        const wTail   = Math.cos(angle);
+
+        const headVal = src[inSample + f]                             * normaliseGain;
+        const tailVal = src[inSample + regionLen - fadeSamples + f]  * normaliseGain;
+
+        dst[f] = headVal * wHead + tailVal * wTail;
+      }
+    }
+
+    loopBuffer = out;
+    renderBadge.hidden = true;
+
+    if (playingClip) {
+      playClip(playingClip);
+    }
+  }
+
+  function scheduleRender() {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderLoopBuffer, 80);
+  }
+
+  // Obsługa przeciągania suwaków fali
+  function makeDraggable(handle, onMove) {
+    let dragging = false;
+    handle.addEventListener('pointerdown', e => {
+      dragging = true;
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    handle.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const rect = loopOverlay.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      onMove(frac);
+      updateLoopUI();
+      scheduleRender();
+    });
+    handle.addEventListener('pointerup', () => { dragging = false; });
+  }
+  makeDraggable(handleIn,  frac => { loopIn  = Math.min(frac, loopOut - 0.02); });
+  makeDraggable(handleOut, frac => { loopOut = Math.max(frac, loopIn  + 0.02); });
+
+  loopOverlay.addEventListener('pointerdown', e => {
+    if (e.target === handleIn || e.target === handleOut) return;
+    const rect = loopOverlay.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (Math.abs(frac - loopIn) < Math.abs(frac - loopOut))
+      loopIn  = Math.min(frac, loopOut - 0.02);
+    else
+      loopOut = Math.max(frac, loopIn  + 0.02);
+    updateLoopUI();
+    scheduleRender();
+  });
+
+  // ── Ładowanie plików audio ──────────────────────────────────────
+  async function loadFile(filename) {
+    stopAll(0.005);
+    rawBuffer = null; loopBuffer = null;
+    loopIn = 0; loopOut = 1;
+    drawWaveform(null);
+    updateLoopUI();
+    setStatus('LOADING...');
+
+    const resp = await fetch('/raw-audio/?file=' + encodeURIComponent(filename));
+    if (!resp.ok) throw new Error(await resp.text());
+    rawBuffer = await AC.decodeAudioData(await resp.arrayBuffer());
+
+    drawWaveform(rawBuffer);
+    updateLoopUI();
+    await renderLoopBuffer();
+    setStatus('READY');
+  }
+
+  // Pobieranie losowego utworu z zaznaczonych w trybie Shuffle
+  function getSelectedShuffleFile() {
+    const checked = Array.from(document.querySelectorAll('.shuffle-track-cb:checked')).map(cb => cb.value);
+    if (checked.length === 0) return fileSelector.value; // Fallback
+    return checked[Math.floor(Math.random() * checked.length)];
+  }
+
+  async function loadCurrentSelection() {
+    if (cfg.isShuffleMode) {
+      const randomFile = getSelectedShuffleFile();
+      await loadFile(randomFile);
+    } else {
+      await loadFile(fileSelector.value);
+    }
+  }
+
+  fileSelector.addEventListener('change', async () => {
+    if (!cfg.isShuffleMode) await loadFile(fileSelector.value);
+  });
+
+  // ── Sterowanie i Przełączanie pętli (Z uwzględnieniem trybów) ─────
+  function nextSlotKey() { return activeSlot === 'X' ? 'Y' : 'X'; }
+  function getSlot(key)  { return key === 'X' ? slotA : slotB; }
+  function setSlot(key, val) { if (key === 'X') slotA = val; else slotB = val; }
+
+  function currentOffset() {
+    if (!loopBuffer || !playingClip) return 0;
+    const elapsed = AC.currentTime - playStartedAt + playOffsetStart;
+    return ((elapsed % loopBuffer.duration) + loopBuffer.duration) % loopBuffer.duration;
+  }
+
+  function killSlot(key, fadeSecs) {
+    const slot = getSlot(key);
+    if (!slot) return;
+    const now = AC.currentTime;
+    slot.gain.gain.setValueAtTime(slot.gain.gain.value, now);
+    slot.gain.gain.linearRampToValueAtTime(0, now + fadeSecs);
+    const s = slot.src;
+    setTimeout(() => { try { s.stop(); } catch(_){} }, (fadeSecs + 0.05) * 1000);
+    setSlot(key, null);
+  }
+
+  function stopAll(fadeSecs) {
+    const f = fadeSecs !== undefined ? fadeSecs : cfg.switchFadeSecs;
+    killSlot('X', f);
+    killSlot('Y', f);
+    activeSlot = null;
+    playingClip = null;
+    PlayABtn.classList.remove('playing');
+    PlayBBtn.classList.remove('playing');
+    PlayABtn.textContent = "Play A";
+    PlayBBtn.textContent = "Play B";
+    if (!answered) setStatus('READY');
+  }
+
+  function playClip(clip) {
+    if (!loopBuffer) return;
+    if (AC.state === 'suspended') AC.resume();
+
+    const db = (clip === louderVersion) ? gainDb : 0;
+    const target = dbToLinear(db);
+    const fade = cfg.switchFadeSecs;
+    const now = AC.currentTime;
+
+    // NOWOŚĆ: Logika sprawdzania, czy startujemy pętlę od nowa, czy od obecnego momentu
+    let offset = 0;
+    if (!cfg.loopRestartOnSwitch && playingClip !== null) {
+      offset = currentOffset();
+    }
+
+    const oldKey = activeSlot;
+    if (oldKey) killSlot(oldKey, fade);
+
+    const newKey = nextSlotKey();
+    const gainNode = AC.createGain();
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(target, now + fade);
+
+    const limiter = AC.createDynamicsCompressor();
+    limiter.threshold.value = -1;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.1;
+
+    gainNode.connect(limiter);
+    limiter.connect(AC.destination);
+
+    const srcNode = AC.createBufferSource();
+    srcNode.buffer = loopBuffer;
+    srcNode.loop = true;
+    srcNode.connect(gainNode);
+    srcNode.start(0, offset);
+
+    setSlot(newKey, { src: srcNode, gain: gainNode });
+    activeSlot = newKey;
+    playingClip = clip;
+    playStartedAt = now;
+    playOffsetStart = offset;
+
+    PlayABtn.classList.toggle('playing', clip === 'A');
+    PlayBBtn.classList.toggle('playing', clip === 'B');
+    PlayABtn.textContent = clip === 'A' ? "Stop" : "Play A";
+    PlayBBtn.textContent = clip === 'B' ? "Stop" : "Play B";
+    setStatus(clip === 'A' ? 'PLAYING A' : 'PLAYING B');
+  }
+
+  async function ensureReady() {
+    if (!loopBuffer) await loadCurrentSelection();
+  }
+
+  PlayABtn.addEventListener('click', async () => {
+    if (playingClip === 'A') { stopAll(); return; }
+    await ensureReady();
+    playClip('A');
+  });
+
+  PlayBBtn.addEventListener('click', async () => {
+    if (playingClip === 'B') { stopAll(); return; }
+    await ensureReady();
+    playClip('B');
+  });
+
+  // ── Generowanie rundy ──────────────────────────────────────────
+  function generateRound() {
+    louderVersion = Math.random() > 0.5 ? "A" : "B"; 
+
+    const pool = [];
+    for (let v = cfg.rangeMin; v <= cfg.rangeMax + 0.001; v += cfg.stepSize) {
+      pool.push(parseFloat(v.toFixed(2)));
+    }
+    gainDb = pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function submit() {
+    stopAll();
+    const selected = document.querySelector('input[name="answer"]:checked');
+    if (!selected) {
+      AnswerIndicator.textContent = "Select an answer first.";
+      return;
+    }
+
+    answered = true;
+    const answer = selected.value;
+
+    if (answer === louderVersion) {
+      AnswerIndicator.textContent = `Correct! Difference was ${gainDb} dB`;
+      InnerBox.style.borderColor = "var(--accent2)";
+      InnerBox.style.background = "rgba(129,244,149,0.10)";
+      AnswerIndicator.style.color = "var(--accent2)";
+      correct++; streak++;
+    } else {
+      AnswerIndicator.textContent = `Wrong :( Correct: ${louderVersion} (+${gainDb} dB)`;
+      InnerBox.style.borderColor = "var(--wrong-hard)";
+      InnerBox.style.background = "rgba(255,111,89,0.10)";
+      AnswerIndicator.style.color = "var(--wrong-light)";
+      wrong++; streak = 0;
+    }
+
+    document.querySelectorAll('input[name="answer"]').forEach(r => r.disabled = true);
+    SubmitNextBtn.textContent = "Next";
+    SubmitNextBtn.onclick = next;
+    updateScore();
+  }
+
+  async function next() {
+    answered = false;
+    generateRound();
+
+    // Jeśli włączony jest tryb Shuffle, przy kolejnym pytaniu ładujemy nową piosenkę
+    if (cfg.isShuffleMode) {
+      await loadCurrentSelection();
+    }
+
+    AnswerIndicator.textContent = "Which sound is louder?";
+    AnswerIndicator.style.color = "";
+    InnerBox.style.borderColor = "";
+    InnerBox.style.background = "";
+
+    document.querySelectorAll('input[name="answer"]').forEach(r => {
+      r.checked = false;
+      r.disabled = false;
+    });
+
+    SubmitNextBtn.textContent = "Submit";
+    SubmitNextBtn.onclick = submit;
+    setStatus("READY");
+  }
+
+  // ── Obsługa Eventów dla NOWYCH kontrolek w Settings ─────────────
+  
+  // Crossfade suwaki
+  document.getElementById('slLoopFade').addEventListener('input', function() {
+    cfg.loopFadeSecs = parseFloat(this.value) / 1000;
+    document.getElementById('valLoopFade').textContent = this.value + ' ms';
+    scheduleRender();
+  });
+
+  document.getElementById('slSwitchFade').addEventListener('input', function() {
+    cfg.switchFadeSecs = parseFloat(this.value) / 1000;
+    document.getElementById('valSwitchFade').textContent = this.value + ' ms';
+  });
+
+  // Loop Mode (Current vs Start)
+  document.getElementById('loopModeRow').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#loopModeRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    cfg.loopRestartOnSwitch = (chip.dataset.mode === 'start');
+  });
+
+  // Selection Mode (Fixed vs Shuffle)
+  document.getElementById('sourceModeRow').addEventListener('click', async e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#sourceModeRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+
+    if (chip.id === 'btnModeShuffle') {
+      cfg.isShuffleMode = true;
+      fixedSourceRow.style.display = 'none';
+      shuffleSourceRow.style.display = 'block';
+    } else {
+      cfg.isShuffleMode = false;
+      fixedSourceRow.style.display = 'block';
+      shuffleSourceRow.style.display = 'none';
+    }
+    await loadCurrentSelection();
+  });
+
+  // Standardowe Presety Trudności
+  function syncSliders() {
+    document.getElementById('slMin').value = cfg.rangeMin;
+    document.getElementById('slMax').value = cfg.rangeMax;
+    document.getElementById('slStep').value = cfg.stepSize;
+    document.getElementById('valMin').textContent = cfg.rangeMin + ' dB';
+    document.getElementById('valMax').textContent = cfg.rangeMax + ' dB';
+    document.getElementById('valStep').textContent = cfg.stepSize + ' dB';
+  }
+
+  document.getElementById('presetRow').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#presetRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+
+    cfg.rangeMin = parseFloat(chip.dataset.min);
+    cfg.rangeMax = parseFloat(chip.dataset.max);
+    cfg.stepSize = parseFloat(chip.dataset.step);
+
+    syncSliders();
+    generateRound();
+  });
+
+  function sliderSetup(id, valId, key) {
+    document.getElementById(id).addEventListener('input', function() {
+      cfg[key] = parseFloat(this.value);
+      document.getElementById(valId).textContent = this.value + ' dB';
+      document.querySelectorAll('#presetRow .chip').forEach(c => c.classList.remove('active'));
+      generateRound();
+    });
+  }
+  sliderSetup('slMin', 'valMin', 'rangeMin');
+  sliderSetup('slMax', 'valMax', 'rangeMax');
+  sliderSetup('slStep', 'valStep', 'stepSize');
+
+  new ResizeObserver(() => drawWaveform(rawBuffer)).observe(waveContainer);
 
   generateRound();
-  
-  AnswerIndicator.textContent = "Which sound is louder?";
-  AnswerIndicator.style.color = "";
-
-  InnerBox.style.borderColor = "";
-  InnerBox.style.background = "";
-  SubmitNextBtn.textContent = "Submit";
-
-   document.querySelectorAll('input[name="answer"]').forEach(r => {
-    r.checked = false;
-    r.disabled = false;
-  });
-
-  SubmitNextBtn.textContent = "Submit";
   SubmitNextBtn.onclick = submit;
-}
-
-function generateRound() {
-  louderVersion = randomVersion();
-  gainDb = randomGain();
-  mode = randomMode();
-  console.log("NEW ROUND");
-  console.log(louderVersion);
-  console.log(gainDb);
-  console.log(mode);
-}
-
-SubmitNextBtn.onclick = submit;
-generateRound();
-
+})();
 </script>
-
 </body>
 </html>
