@@ -208,7 +208,10 @@
       try {
         // Fetch EQ-processed audio from Django backend
         const selectedFile = fileSelector.value;
-        const url          = `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
+        const url =
+      `/audio/?freq=${targetFreq}` +
+      `&gain=${cfg.eqGainDb}` +
+      `&file=${encodeURIComponent(selectedFile)}`;
         const resp         = await fetch(url);
 
         if (!resp.ok) {
