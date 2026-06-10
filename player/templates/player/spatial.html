@@ -5,14 +5,50 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">    
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght=400;500;700&display=swap" rel="stylesheet">    
   <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/menu.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/spatial.css' %}">
+  <style>
+    /* Injected Header Styles from loudness.css to ensure precise rendering */
+    .AnswerIndicator {
+      margin: 0;
+      font-size: clamp(0.95rem, 2.5vw, 1.3rem);
+      color: var(--text);
+      text-align: center;
+    }
+    .TaskDescription {
+      margin: 0;
+      font-size: clamp(0.8rem, 2vw, 1rem);
+      color: var(--accent1);
+      text-align: center;
+    }
+    .status {
+      margin: 0;
+      font-size: clamp(1.3rem, 3.5vw, 2rem);
+      color: var(--accent3);
+      text-align: center;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    /* Perfectly center the score chips container */
+    .score-area {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      width: 100%;
+    }
+    .score-chip {
+      min-width: 100px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-<button id="HomeBtn"  class="corner-btn">
+<button id="HomeBtn" class="corner-btn">
   ← Menu
 </button>
 <div class="container">
@@ -20,31 +56,9 @@
 
   <div class="card" id="mainCard">
 
-    <div class="loading-overlay" id="loadingOverlay">
-      <div class="spinner"></div>
-      <div class="loading-text">Fetching audio...</div>
-    </div>
-
-    <div class="round-info">
-      <div>
-        <div class="round-num" id="roundNum">Round 1</div>
-        <div style="font-size:0.7rem;color:var(--text-muted);letter-spacing:0.05em;text-transform:uppercase;margin-top:2px">of 10</div>
-      </div>
-      <div class="score-display">
-        <div class="score-item">
-          <span class="val" id="scoreCorrect" style="color:var(--accent2)">0</span>
-          <span class="lbl">Correct</span>
-        </div>
-        <div class="score-item">
-          <span class="val" id="scoreTotal" style="color:var(--text-muted)">0</span>
-          <span class="lbl">Played</span>
-        </div>
-        <div class="score-item">
-          <span class="val" id="scoreAvgErr" style="color:var(--accent3)">—</span>
-          <span class="lbl">Avg Err</span>
-        </div>
-      </div>
-    </div>
+    <h2 class="AnswerIndicator" id="AnswerIndicator">Estimate the horizontal angle</h2>
+    <h3 class="TaskDescription">Play the sound — what direction is it coming from?</h3>
+    <h3 class="status" id="status">READY</h3>
 
     <div class="slider-section">
       <div class="slider-label">
@@ -55,7 +69,7 @@
       <div class="selection-container">
         <div class="error-zone" id="errorZone"></div>
         <div class="sound-indicator" id="soundIndicator"></div>
-        <input type="range" id="dirSlider" min="-90" max="90" value="0" step="1">
+        <input class="answer-slider" type="range" id="dirSlider" min="-90" max="90" value="0" step="1">
       </div>
 
       <div class="slider-ticks">
@@ -67,36 +81,77 @@
       </div>
     </div>
 
-    <div class="file-selector-group" style="margin-bottom:0.6rem">
-      <select class="file-selector" id="fileSelector">
-        {% for f in audio_files %}
-        <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
-        {% endfor %}
-      </select>
-      <p class="file-selector-desc">audio source</p>
-    </div>
-
     <div class="btn-row">
-      <button class="btn btn-play" id="playBtn" disabled>
-        <span id="playIcon">▶</span>
-        <span id="playLabel">Play Sound</span>
+      <button type="button" id="playBtn" class="btn btn-play">
+        <span id="playIcon">▶</span> <span id="playLabel">Play Sound</span>
       </button>
-      <button class="btn btn-submit" id="submitBtn" disabled>
-        Submit Answer
-      </button>
-      <button class="btn btn-next" id="nextBtn">
-        Next Round →
-      </button>
+      <button type="button" id="submitBtn" class="btn btn-submit">Submit</button>
+      <button type="button" id="nextBtn" class="btn btn-next">Next</button>
     </div>
 
-    <div class="result-feedback" id="resultFeedback"></div>
+    <div id="resultFeedback" class="result-feedback"></div>
 
-  </div>
+    <details class="settings-panel">
+      <summary class="settings-toggle">// settings</summary>
+      <div class="settings-body">
+        <div class="setting-row">
+          <span class="setting-label">Allowed error</span>
+          <div class="chip-row" id="errorMarginRow">
+            <button class="chip active" data-val="5">5</button>
+            <button class="chip" data-val="10">10</button>
+            <button class="chip" data-val="15">15</button>
+            <button class="chip" data-val="20">20</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Loop</span>
+          <div class="chip-row" id="loopRow">
+            <button class="chip active" data-val="on">On</button>
+            <button class="chip" data-val="off">Off</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Loop crossfade</span>
+          <input class="setting-slider" type="range" id="slLoopFade" min="0" max="100" step="1" value="20">
+          <span class="setting-val" id="valLoopFade">20 ms</span>
+        </div>
 
-  <div class="card history-section">
-    <div class="history-title">Round History</div>
-    <div class="history-list" id="historyList">
-      <div style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:0.5rem">No rounds played yet</div>
+        <div class="setting-divider"></div>
+
+        <div class="setting-row">
+          <span class="setting-label">Shuffle mode</span>
+          <div class="chip-row" id="shuffleRow">
+            <button class="chip active" data-val="off">Off</button>
+            <button class="chip" data-val="on">On — random each round</button>
+          </div>
+        </div>
+        <div class="setting-row" id="fixedSourceRow">
+          <span class="setting-label">Audio source</span>
+          <select class="file-selector" id="fileSelector">
+            {% for f in audio_files %}
+            <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="setting-row setting-row-top" id="shuffleSourceRow" style="display:none">
+          <span class="setting-label">Shuffle pool</span>
+          <div class="source-list" id="sourceList">
+            {% for f in audio_files %}
+            <label class="source-item">
+              <input type="checkbox" class="shuffle-track-cb" value="{{ f }}" checked>
+              <span>{{ f }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </details>
+
+    <div class="score-area">
+      <span class="score-chip correct-chip" id="scoreCorrect">✓ 0 Correct</span>
+      <span class="score-chip wrong-chip"   id="scoreTotal">⌾ 0 Played</span>
+      <span class="score-chip streak-chip"  id="scoreAvgErr">∿ — Avg Err</span>
     </div>
   </div>
 
@@ -104,9 +159,7 @@
 
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────────
-const TOTAL_ROUNDS    = 10;
-const ERROR_MARGIN_DEG = 5;   // ±5° window threshold
-// audio source files are served raw from /raw-audio/?file=<name>
+let ERROR_MARGIN_DEG = 5;   // ±5° window threshold (mutable via settings panel)
 
 // ─── App Context State ────────────────────────────────────────────────────────
 let audioCtx        = null;
@@ -116,13 +169,15 @@ let sourceNode      = null;
 let isPlaying       = false;
 let currentAngleDeg = 0;     
 let answered        = false;
-let round           = 1;
-let correct         = 0;
+let correctCount    = 0;
+let playedCount     = 0;
 let totalErrors     = [];
-let history         = [];
+let isShuffleMode   = false;
 
 // ─── DOM Elements Nodes Map ──────────────────────────────────────────────────
-const loadingOverlay   = document.getElementById('loadingOverlay');
+const AnsIndicator    = document.getElementById('AnswerIndicator');
+const statusEl        = document.getElementById('status');
+const mainCard        = document.getElementById('mainCard');
 const errorBanner      = document.getElementById('errorBanner');
 const playBtn          = document.getElementById('playBtn');
 const playIcon         = document.getElementById('playIcon');
@@ -134,18 +189,44 @@ const sliderValueLabel = document.getElementById('sliderValueLabel');
 const errorZone        = document.getElementById('errorZone');
 const soundIndicator   = document.getElementById('soundIndicator');
 const resultFeedback   = document.getElementById('resultFeedback');
-const roundNumEl       = document.getElementById('roundNum');
 const scoreCorrect     = document.getElementById('scoreCorrect');
 const scoreTotal       = document.getElementById('scoreTotal');
 const scoreAvgErr      = document.getElementById('scoreAvgErr');
-const historyList      = document.getElementById('historyList');
 const fileSelector     = document.getElementById('fileSelector');
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function setStatus(msg) { 
+  if (statusEl) statusEl.textContent = msg; 
+}
+
+function resetCardStyle() {
+  mainCard.style.borderColor = '';
+  mainCard.style.background  = '';
+  statusEl.style.color       = '';
+  AnsIndicator.style.color   = '';
+}
+
+function getSelectedShuffleFile() {
+  const checked = Array.from(document.querySelectorAll('.shuffle-track-cb:checked')).map(cb => cb.value);
+  if (checked.length === 0) return fileSelector.value;
+  return checked[Math.floor(Math.random() * checked.length)];
+}
+
+async function loadCurrentSelection() {
+  if (isShuffleMode) {
+    const randomFile = getSelectedShuffleFile();
+    await loadAudioFile(randomFile);
+  } else {
+    await loadAudioFile(fileSelector.value);
+  }
+}
 
 // ─── Init App Pipeline ────────────────────────────────────────────────────────
 async function loadAudioFile(filename) {
   showLoading(true);
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!filename) return;
 
     const response = await fetch('/raw-audio/?file=' + encodeURIComponent(filename));
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -155,27 +236,31 @@ async function loadAudioFile(filename) {
     showLoading(false);
   } catch (err) {
     showLoading(false);
-    showError(`Failed to load audio: ${err.message}. Using a generated test tone.`);
+    showError(`Failed to load audio: ${err.message}. Using generated fallback test tone.`);
     await fallbackToOscillator();
   }
 }
 
 async function init() {
-  await loadAudioFile(fileSelector.value);
+  await loadCurrentSelection();
   startRound();
 }
 
-// Reload the buffer when the user picks a different source file
+// Reload the buffer securely when user adjusts source track selection selection
 fileSelector.addEventListener('change', async () => {
-  if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
-  isPlaying = false;
-  await loadAudioFile(fileSelector.value);
+  if (!isShuffleMode) {
+    if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+    isPlaying = false;
+    await loadAudioFile(fileSelector.value);
+  }
 });
+
 document.getElementById("HomeBtn").addEventListener("click", () => {
-      window.location.href = "/";
-    });
+  window.location.href = "/";
+});
+
 async function fallbackToOscillator() {
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const sampleRate = audioCtx.sampleRate;
   const duration   = 1.5; 
   const numSamples = Math.floor(sampleRate * duration);
@@ -194,10 +279,10 @@ async function fallbackToOscillator() {
     data[i] = (b0+b1+b2+b3+b4+b5+b6+white*0.5362) * 0.11;
     b6 = white * 0.115926;
   }
-  showError('⚠ Backend unavailable — using generated test tone instead.');
+  showError('⚠ Backend audio file unavailable — using built-in test tone simulation.');
 }
 
-// ─── Session Iteration Loops ──────────────────────────────────────────────────
+// ─── Session Practice Loops ──────────────────────────────────────────────────
 function startRound() {
   answered    = false;
   isPlaying   = false;
@@ -208,6 +293,10 @@ function startRound() {
   updateSliderUI(0);
   soundIndicator.style.opacity = '0';
 
+  resetCardStyle();
+  AnsIndicator.textContent = 'Estimate the horizontal angle';
+  setStatus('READY');
+
   resultFeedback.style.display = 'none';
   playBtn.disabled   = false;
   submitBtn.disabled = false;
@@ -215,7 +304,6 @@ function startRound() {
   playBtn.classList.remove('playing');
   playIcon.textContent = '▶';
   playLabel.textContent = 'Play Sound';
-  roundNumEl.textContent = `Round ${round}`;
 }
 
 // ─── Spatial Sound Processing Mechanics ───────────────────────────────────────
@@ -230,7 +318,10 @@ async function playSound() {
 
   sourceNode = audioCtx.createBufferSource();
   sourceNode.buffer = audioBuffer;
-  sourceNode.loop   = false;
+  
+  // Connect configuration loop switch dynamically
+  const isLoopActive = document.querySelector('#loopRow .chip.active')?.getAttribute('data-val') === 'on';
+  sourceNode.loop = isLoopActive;
 
   pannerNode = audioCtx.createPanner();
   pannerNode.panningModel  = 'HRTF';       
@@ -260,14 +351,18 @@ async function playSound() {
 
   playBtn.classList.add('playing');
   playIcon.innerHTML = `<div class="waveform"><span></span><span></span><span></span><span></span><span></span></div>`;
-  playLabel.textContent = 'Playing...';
+  playLabel.textContent = 'Stop';
+  if (!answered) setStatus('PLAYING');
 
   sourceNode.onended = () => {
-    isPlaying = false;
-    playBtn.classList.remove('playing');
-    playIcon.textContent = '▶';
-    playLabel.textContent = 'Play Again';
-    sourceNode = null;
+    if (sourceNode && !sourceNode.loop) {
+      isPlaying = false;
+      playBtn.classList.remove('playing');
+      playIcon.textContent = '▶';
+      playLabel.textContent = 'Play Again';
+      sourceNode = null;
+      if (!answered) setStatus('READY');
+    }
   };
 }
 
@@ -301,25 +396,47 @@ function submitAnswer() {
   if (answered) return;
   answered = true;
 
+  // Kill running audio tracks upon evaluation
+  if (sourceNode) { try { sourceNode.stop(); } catch(e){} isPlaying = false; }
+
   const guess     = parseInt(dirSlider.value);
   const actual    = currentAngleDeg;
   const error     = Math.abs(guess - actual);
   const isCorrect = error <= ERROR_MARGIN_DEG;
 
-  // Reveal correct location track line overlay onto the selection bar layout
+  // Render horizontal track overlay line pinpointing actual answer
   const pct = ((actual + 90) / 180) * 100;
   soundIndicator.style.left    = pct + '%';
   soundIndicator.style.opacity = '1';
 
-  if (isCorrect) correct++;
+  playedCount++;
+  if (isCorrect) correctCount++;
   totalErrors.push(error);
-  scoreCorrect.textContent = correct;
-  scoreTotal.textContent   = round;
+
+  // Update relocated indicators inside score area 
+  scoreCorrect.textContent = `✓ ${correctCount} Correct`;
+  scoreTotal.textContent   = `⌾ ${playedCount} Played`;
   const avgErr = Math.round(totalErrors.reduce((a,b)=>a+b,0) / totalErrors.length);
-  scoreAvgErr.textContent  = avgErr + '°';
+  scoreAvgErr.textContent  = `∿ ${avgErr}° Avg Err`;
 
   const actualLabel = actual === 0 ? 'Center' : `${Math.abs(actual)}° ${actual < 0 ? 'Left' : 'Right'}`;
   const guessLabel  = guess  === 0 ? 'Center' : `${Math.abs(guess)}° ${guess < 0 ? 'Left' : 'Right'}`;
+
+  if (isCorrect) {
+    AnsIndicator.textContent = 'Correct!';
+    AnsIndicator.style.color = 'var(--accent2)';
+    mainCard.style.borderColor = 'var(--accent2)';
+    mainCard.style.background = 'rgba(129,244,149,0.10)';
+    statusEl.style.color = 'var(--accent2)';
+    setStatus('CORRECT');
+  } else {
+    AnsIndicator.textContent = `Incorrect -- answer was ${actualLabel}`;
+    AnsIndicator.style.color = 'var(--wrong-light)';
+    mainCard.style.borderColor = 'var(--wrong-hard)';
+    mainCard.style.background = 'rgba(255,111,89,0.10)';
+    statusEl.style.color = 'var(--wrong-light)';
+    setStatus('WRONG');
+  }
 
   resultFeedback.className = `result-feedback ${isCorrect ? 'correct' : 'incorrect'}`;
   resultFeedback.innerHTML = isCorrect
@@ -329,91 +446,75 @@ function submitAnswer() {
        <span class="result-detail">Sound was at ${actualLabel} — you guessed ${guessLabel}</span>`;
   resultFeedback.style.display = 'block';
 
-  addHistory(round, actual, guess, error, isCorrect);
-
   submitBtn.disabled = true;
-  if (round < TOTAL_ROUNDS) {
-    nextBtn.style.display = 'block';
-  } else {
-    showFinalScore();
-  }
+  playBtn.classList.remove('playing');
+  playIcon.textContent = '▶';
+  playLabel.textContent = 'Play Sound';
+  nextBtn.style.display = 'block';
 }
 
-// ─── Historical Serialization Records ────────────────────────────────────────
-function addHistory(roundN, actual, guess, error, isCorrect) {
-  if (historyList.querySelector('[style]')) {
-    historyList.innerHTML = '';
-  }
-  const actualLabel = actual === 0 ? 'Center' : `${Math.abs(actual)}° ${actual < 0 ? 'L' : 'R'}`;
-  const guessLabel  = guess  === 0 ? 'Center' : `${Math.abs(guess)}° ${guess < 0 ? 'L' : 'R'}`;
-
-  const el = document.createElement('div');
-  el.className = 'history-item';
-  el.innerHTML = `
-    <div class="history-dot ${isCorrect ? 'correct' : 'incorrect'}"></div>
-    <span style="color:var(--text-muted);min-width:52px">R${roundN}</span>
-    <span class="h-actual">Actual: ${actualLabel}</span>
-    <span style="color:var(--text-muted)">→</span>
-    <span class="h-guess">Guess: ${guessLabel}</span>
-    <span class="h-err">${error}° err</span>
-  `;
-  historyList.prepend(el);
-}
-
-function showFinalScore() {
-  const avgErr = Math.round(totalErrors.reduce((a,b)=>a+b,0) / totalErrors.length);
-  const pct    = Math.round((correct / TOTAL_ROUNDS) * 100);
-
-  resultFeedback.className = 'result-feedback ' + (pct >= 60 ? 'correct' : 'incorrect');
-  resultFeedback.innerHTML += `
-    <br><br>
-    <strong>🏁 Test Finished!</strong>
-    <span class="result-detail">Score: ${correct}/${TOTAL_ROUNDS} (${pct}%) · Avg Error: ${avgErr}°</span>
-    <span class="result-detail" style="margin-top:0.4rem;display:block">
-      <button onclick="resetGame()" style="
-        background:none; border:2px solid currentColor; padding:0.4rem 1rem;
-        font-family:'Roboto Mono',monospace; font-size:0.75rem;
-        font-weight:700; cursor:pointer; color:inherit; margin-top:0.5rem; border-radius:0.5rem;
-      ">↺ Try Again</button>
-    </span>
-  `;
-  playBtn.disabled = true;
-}
-
-function resetGame() {
-  round      = 1;
-  correct    = 0;
-  totalErrors = [];
-  historyList.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:0.5rem">No rounds played yet</div>';
-  scoreCorrect.textContent = 0;
-  scoreTotal.textContent   = 0;
-  scoreAvgErr.textContent  = '—';
-  startRound();
-}
-
-// ─── View Utilities ───────────────────────────────────────────────────────────
 function showLoading(show) {
-  loadingOverlay.style.display = show ? 'flex' : 'none';
+  if (show) {
+    setStatus('LOADING...');
+  } else {
+    if (!answered) setStatus('READY');
+  }
 }
 
-function showError(msg) {
-  errorBanner.textContent = msg;
-  errorBanner.style.display = 'block';
-}
-
-// ─── Input Receivers ──────────────────────────────────────────────────────────
+// Control Input Receivers
 playBtn.addEventListener('click', async () => {
-  if (!isPlaying) await playSound();
+  if (isPlaying) {
+    if (sourceNode) { try { sourceNode.stop(); } catch(e){} }
+    isPlaying = false;
+    playBtn.classList.remove('playing');
+    playIcon.textContent = '▶';
+    playLabel.textContent = 'Play Sound';
+    if (!answered) setStatus('READY');
+  } else {
+    await playSound();
+  }
 });
 
 submitBtn.addEventListener('click', () => {
   if (!answered) submitAnswer();
 });
 
-nextBtn.addEventListener('click', () => {
-  round++;
+nextBtn.addEventListener('click', async () => {
   nextBtn.style.display = 'none';
+  if (isShuffleMode) {
+    await loadCurrentSelection();
+  }
   startRound();
+});
+
+// Settings layout settings interaction receivers
+document.querySelectorAll('.settings-panel .chip').forEach(chip => {
+  chip.addEventListener('click', async () => {
+    const chipRow = chip.closest('.chip-row');
+    chipRow.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    
+    // Live modify accuracy margin if updating allowed window row
+    if (chipRow.id === 'errorMarginRow') {
+      ERROR_MARGIN_DEG = parseInt(chip.getAttribute('data-val'));
+      updateSliderUI(parseInt(dirSlider.value));
+    }
+
+    if (chipRow.id === 'shuffleRow') {
+      if (chip.getAttribute('data-val') === 'on') {
+        isShuffleMode = true;
+        document.getElementById('fixedSourceRow').style.display = 'none';
+        document.getElementById('shuffleSourceRow').style.display = 'block';
+      } else {
+        isShuffleMode = false;
+        document.getElementById('fixedSourceRow').style.display = 'block';
+        document.getElementById('shuffleSourceRow').style.display = 'none';
+      }
+      if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode = null; }
+      isPlaying = false;
+      await loadCurrentSelection();
+    }
+  });
 });
 
 document.addEventListener('keydown', (e) => {

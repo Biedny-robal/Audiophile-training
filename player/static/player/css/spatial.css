@@ -161,7 +161,7 @@ h1 {
 }
 
 /* Transparent native range input layered over elements */
-input[type="range"] {
+.selection-container [type="range"] {
   -webkit-appearance: none;
   appearance: none;
   position: absolute;
@@ -177,7 +177,7 @@ input[type="range"] {
 }
 
 /* Thin vertical strip thumb controller mechanics */
-input[type="range"]::-webkit-slider-thumb {
+.selection-container input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 4px;
@@ -187,11 +187,11 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: grab;
 }
 
-input[type="range"]::-webkit-slider-thumb:active {
+.selection-container input[type="range"]::-webkit-slider-thumb:active {
   cursor: grabbing;
 }
 
-input[type="range"]::-moz-range-thumb {
+.selection-container input[type="range"]::-moz-range-thumb {
   width: 4px;
   height: 40px;
   background: var(--text);
@@ -426,4 +426,184 @@ input[type="range"]::-moz-range-thumb {
           top:20px;
           left:20px;
           z-index:9999;
+}
+/* ── Settings panel 1:1 z loudness.css ─────────────────────── */
+.settings-panel {
+  width: 100%;
+  border: 2px solid var(--accent1-muted);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+.settings-toggle {
+  display: block;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.7rem, 1.5vw, 1rem);
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(0.65rem, 1.3vw, 0.75rem);
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.settings-toggle::-webkit-details-marker { display: none; }
+.settings-toggle::before {
+  content: '▶ ';
+  font-size: 0.6em;
+  vertical-align: middle;
+}
+details[open] .settings-toggle::before { content: '▼ '; }
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 1.2vw, 0.75rem);
+  padding: clamp(0.6rem, 1.5vw, 1rem);
+  border-top: 1px solid var(--accent1-muted);
+}
+.setting-label {
+  font-size: clamp(0.62rem, 1.3vw, 0.72rem);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  min-width: 7rem;
+  flex-shrink: 0;
+}
+.setting-val {
+  font-size: clamp(0.65rem, 1.3vw, 0.75rem);
+  font-weight: 500;
+  color: var(--text);
+  min-width: 3rem;
+  text-align: right;
+}
+.setting-row input[type="range"] {
+  flex: 1;
+  min-width: 80px;
+  accent-color: var(--accent1);
+}
+
+/* ── Chip buttons (Shared settings toggle style) ────────────── */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.chip {
+  padding: clamp(0.18rem, 0.5vw, 0.28rem) clamp(0.45rem, 1vw, 0.7rem);
+  border: 2px solid var(--accent1-muted);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(0.6rem, 1.2vw, 0.68rem);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.13s ease, color 0.13s ease, background 0.13s ease;
+}
+.chip:hover {
+  border-color: var(--accent1);
+  color: var(--text);
+}
+.chip.active {
+  border-color: var(--accent1);
+  background: var(--accent1);
+  color: var(--bg);
+}
+.setting-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--accent1-muted);
+  opacity: 0.4;
+  margin: 0.1rem 0;
+}
+
+/* Stan aktywny (odtwarzanie) dla Play A / Play B */
+.PlayStopBtn.playing {
+  background: rgba(142, 141, 190, 0.22);
+  color: var(--accent3);
+  border-color: var(--accent3);
+}
+
+/* ── Obsługa list i trybów Shuffle (Zgodnie z loudness.css) ── */
+.setting-row-top {
+  align-items: flex-start;
+}
+
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 150px;
+  overflow-y: auto;
+  width: 100%;
+  padding: 0.2rem;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: clamp(0.62rem, 1.3vw, 0.72rem);
+  color: var(--text);
+  user-select: none;
+}
+
+.source-item input[type="checkbox"] {
+  accent-color: var(--accent1);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.setting-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--accent1-muted);
+  opacity: 0.4;
+  margin: 0.4rem 0;
+}
+
+/* Dostosowanie suwaków w panelu */
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.4rem, 1vw, 0.7rem);
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+/* Podświetlenie aktywnego przycisku odtwarzania w systemie AB */
+.PlayStopBtn.playing {
+  background: rgba(142, 141, 190, 0.22) !important;
+  color: var(--accent3) !important;
+  border-color: var(--accent3) !important;
+}
+
+.file-selector-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.file-selector {
+  width: 100%;
+  padding: clamp(0.28rem, 0.9vw, 0.45rem) clamp(0.35rem, 0.9vw, 0.55rem);
+  border: 2px solid var(--accent1);
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(0.65rem, 1.4vw, 0.82rem);
+  cursor: pointer;
+}
+
+.file-selector-desc {
+  margin: 0;
+  font-size: clamp(0.55rem, 1.2vw, 0.68rem);
+  color: var(--text-muted);
+  text-align: center;
 }
