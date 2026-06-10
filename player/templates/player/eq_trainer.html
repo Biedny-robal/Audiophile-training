@@ -10,7 +10,7 @@
   <title>EQ Trainer</title>
   <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
-  <link rel="stylesheet" href="{% static 'player/css/loudness_ab.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/eq_trainer.css' %}">
 </head>
 <body>
   <button id="HomeBtn"  class="corner-btn">
@@ -64,7 +64,6 @@
     </ul>
     <div class="bottom-controls">
       <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
-
       <button type="button" id="PlayReference" class="SubmitNextBtn">Reference</button>
     </div>
     <div class="waveform-wrap">
@@ -86,21 +85,34 @@
   <span class="loop-time-label loop-time-right" id="loopOutLabel">—</span>
 </div>
 <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
+
 <details class="settings-panel">
   <summary class="settings-toggle">// settings</summary>
-
   <div class="settings-body">
+
+    <div class="setting-row">
+      <span class="setting-label">EQ Gain: <strong id="eqGainVal">12.0 dB</strong></span>
+      <input type="range" id="eqGainSlider" min="0.5" max="12.0" step="0.5" value="12.0" style="width: 100%; max-width: 200px;">
+    </div>
+
+    <div class="setting-row">
+      <span class="setting-label">Filter Bandwidth: <strong id="eqBandwidthVal">1.0 Oct</strong></span>
+      <select id="eqBandwidthSlider" class="file-selector" style="width: 100%; max-width: 200px;">
+        <option value="2.0">2 Oktawy (Szeroki)</option>
+        <option value="1.414">1 Oktawa (Standard)</option>
+        <option value="1.0" selected>1.0 Oktawy</option>
+        <option value="0.5">1/2 Oktawy (Wąski)</option>
+        <option value="0.333">1/3 Oktawy (Bardzo wąski)</option>
+      </select>
+    </div>
+
+    <div class="setting-divider"></div>
 
     <div class="setting-row">
       <span class="setting-label">Loop transition</span>
       <div class="chip-row" id="loopModeRow">
-        <button class="chip active" data-mode="current">
-          Keep current moment
-        </button>
-
-        <button class="chip" data-mode="start">
-          Restart loop
-        </button>
+        <button class="chip active" data-mode="current">Keep current moment</button>
+        <button class="chip" data-mode="start">Restart loop</button>
       </div>
     </div>
 
@@ -109,19 +121,13 @@
     <div class="setting-row">
       <span class="setting-label">Selection Mode</span>
       <div class="chip-row" id="sourceModeRow">
-        <button class="chip active" id="btnModeFixed">
-          Fixed Single
-        </button>
-
-        <button class="chip" id="btnModeShuffle">
-          Shuffle Playlist
-        </button>
+        <button class="chip active" id="btnModeFixed">Fixed Single</button>
+        <button class="chip" id="btnModeShuffle">Shuffle Playlist</button>
       </div>
     </div>
 
     <div class="setting-row" id="fixedSourceRow">
       <span class="setting-label">Audio source</span>
-
       <select class="file-selector" id="fileSelectorSettings">
         {% for f in audio_files %}
         <option value="{{ f }}">{{ f }}</option>
@@ -129,44 +135,103 @@
       </select>
     </div>
 
-    <div class="setting-row setting-row-top"
-         id="shuffleSourceRow"
-         style="display:none;">
-
+    <div class="setting-row setting-row-top" id="shuffleSourceRow" style="display:none;">
       <span class="setting-label">Shuffle playlist</span>
-
       <div class="source-list">
         {% for f in audio_files %}
         <label class="source-item">
-          <input type="checkbox"
-                 class="shuffle-track-cb"
-                 value="{{ f }}"
-                 checked>
+          <input type="checkbox" class="shuffle-track-cb" value="{{ f }}" checked>
           <span>{{ f }}</span>
         </label>
         {% endfor %}
       </div>
-
     </div>
 
   </div>
 </details>
+
      <div class="score-area">
         <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
         <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
         <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+        <button type="button" id="DownloadCsvBtn" class="csv-btn">CSV</button>
       </div>
   </div>
 
   <script>
     // === STATE ===
-   
     let audio    = null;
     var freq     = null;
     let correct = 0;
     let wrong = 0;
     let streak = 0;
-    // Frequency map: index string -> Hz number
+
+    // === REJESTR HISTORII TESTÓW DLA CSV ===
+    let currentPlayingFile = 'unknown';
+    const eqHistory = [];
+
+    function logEQRound(userChoice, isCorrectData) {
+      try {
+        const activePresetChip = document.querySelector('#presetRow .chip.active');
+        const presetName = activePresetChip ? activePresetChip.textContent.trim() : 'Custom';
+        
+        // Pobranie aktualnych ustawień filtra z elementów UI
+        const currentGain = parseFloat(eqGainSlider.value).toFixed(1);
+        const currentBandwidth = eqBandwidthSlider.options[eqBandwidthSlider.selectedIndex].text.split(' ')[0];
+
+        const logEntry = {
+          Timestamp: new Date().toISOString(),
+          AudioFile: currentPlayingFile, // Przechwycone Twoją metodą
+          ShuffleMode: cfg.isShuffleMode ? 'on' : 'off',
+          FilterType: 'peaking',
+          TargetFrequency: targetFreq + 'Hz',
+          UserAnswer: userChoice,
+          IsCorrect: isCorrectData,
+          FilterGainDb: currentGain,
+          FilterBandwidthOct: currentBandwidth,
+          TotalCorrect: correct,
+          TotalWrong: wrong,
+          CurrentStreak: streak
+        };
+        
+        eqHistory.push(logEntry);
+      } catch (e) {
+        console.error("Błąd zapisu rundy do CSV:", e);
+      }
+    }
+
+    function exportToCSV() {
+      try {
+        if (eqHistory.length === 0) {
+          alert("Brak danych do wyeksportowania. Rozegraj przynajmniej jedną rundę i zatwierdź odpowiedź!");
+          return;
+        }
+        const headers = Object.keys(eqHistory[0]);
+        const csvRows = [headers.join(',')];
+
+        for (const row of eqHistory) {
+          const values = headers.map(header => {
+            const escaped = ('' + row[header]).replace(/"/g, '\\"');
+            return `"${escaped}"`;
+          });
+          csvRows.push(values.join(','));
+        }
+
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `eq_trainer_results_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        alert("Wystąpił błąd podczas generowania pliku CSV.");
+        console.error(e);
+      }
+    }
+    
     let freqValues = new Map();
     freqValues.set("0", 60);
     freqValues.set("1", 125);
@@ -190,64 +255,53 @@
     const scoreWrongEl   = document.getElementById("scoreWrong");
     const scoreStreakEl  = document.getElementById("scoreStreak");
     const waveCanvas    = document.getElementById('waveCanvas');
-const waveContainer = document.getElementById('waveContainer');
-const loopOverlay   = document.getElementById('loopOverlay');
-const loopFill      = document.getElementById('loopFill');
-const handleIn      = document.getElementById('handleIn');
-const handleOut     = document.getElementById('handleOut');
-const loopInLabel   = document.getElementById('loopInLabel');
-const loopOutLabel  = document.getElementById('loopOutLabel');
-const renderBadge   = document.getElementById('renderBadge');
-const fixedSourceRow =
-  document.getElementById("fixedSourceRow");
+    const waveContainer = document.getElementById('waveContainer');
+    const loopOverlay   = document.getElementById('loopOverlay');
+    const loopFill      = document.getElementById('loopFill');
+    const handleIn      = document.getElementById('handleIn');
+    const handleOut     = document.getElementById('handleOut');
+    const loopInLabel   = document.getElementById('loopInLabel');
+    const loopOutLabel  = document.getElementById('loopOutLabel');
+    const renderBadge   = document.getElementById('renderBadge');
+    const fixedSourceRow = document.getElementById("fixedSourceRow");
+    const shuffleSourceRow = document.getElementById("shuffleSourceRow");
 
-const shuffleSourceRow =
-  document.getElementById("shuffleSourceRow");
+    // NOWE ELEMENTY UI
+    const eqGainSlider = document.getElementById('eqGainSlider');
+    const eqGainVal = document.getElementById('eqGainVal');
+    const eqBandwidthSlider = document.getElementById('eqBandwidthSlider');
+    const eqBandwidthVal = document.getElementById('eqBandwidthVal');
+
+    let renderTimer = null;
 
     document.getElementById("HomeBtn").addEventListener("click", () => {
-    window.location.href = "/";
-});
+        window.location.href = "/";
+    });
 
-function getSelectedShuffleFile() {
+    function getSelectedShuffleFile() {
+      const checked = Array.from(
+        document.querySelectorAll('.shuffle-track-cb:checked')
+      ).map(cb => cb.value);
 
-  const checked =
-    Array.from(
-      document.querySelectorAll('.shuffle-track-cb:checked')
-    ).map(cb => cb.value);
+      if (checked.length === 0) {
+        return fileSelector.value;
+      }
+      return checked[Math.floor(Math.random() * checked.length)];
+    }
 
-  if (checked.length === 0) {
-    return fileSelector.value;
-  }
+  async function loadCurrentSelection() {
+      if (cfg.isShuffleMode) {
+        currentPlayingFile = getSelectedShuffleFile();
+        await loadFile(currentPlayingFile);
+      } else {
+        currentPlayingFile = document.getElementById('fileSelectorSettings').value;
+        await loadFile(currentPlayingFile);
+      }
+    }
 
-  return checked[
-    Math.floor(Math.random() * checked.length)
-  ];
-}
-
-async function loadCurrentSelection() {
-
-  if (cfg.isShuffleMode) {
-
-    const randomFile =
-      getSelectedShuffleFile();
-
-    await loadFile(randomFile);
-
-  } else {
-
-    await loadFile(
-      document.getElementById(
-        'fileSelectorSettings'
-      ).value
-    );
-  }
-}
-    // Pick an initial random target frequency
     var targetFreq = freqValues.get(newFreq());
     console.log('Target freq:', targetFreq);
     
-
-    // Read selected frequency from radio inputs
     freqs.forEach(function(radio) {
       radio.addEventListener('change', function() {
         freq = document.querySelector('input[name="freq"]:checked').value;
@@ -259,8 +313,8 @@ async function loadCurrentSelection() {
       return Math.floor(Math.random() * 9).toString();
     }
     function fmt(s) {
-  return s.toFixed(2) + 's';
-}
+      return s.toFixed(2) + 's';
+    }
     function updateScore() {
       scoreCorrectEl.textContent = "✓ " + correct;
       scoreWrongEl.textContent   = "✗ " + wrong;
@@ -269,26 +323,43 @@ async function loadCurrentSelection() {
 
     const AC = new (window.AudioContext || window.webkitAudioContext)();
 
-const cfg = {
-  loopFadeSecs: 0.020,
-  loopRestartOnSwitch: false,
-  eqGainDb: 12,
-  isShuffleMode: false
-};
+    const cfg = {
+      loopFadeSecs: 0.020,
+      loopRestartOnSwitch: false,
+      isShuffleMode: false
+    };
 
-let rawBuffer = null;
-let loopBuffer = null;
+    let rawBuffer = null;
+    let loopBuffer = null;
+    let loopIn = 0;
+    let loopOut = 1;
 
-let loopIn = 0;
-let loopOut = 1;
+    // OBSŁUGA ZMIAN NOWYCH SLIDERÓW W LOCIE
+    eqGainSlider.addEventListener('input', function() {
+      eqGainVal.textContent = parseFloat(this.value).toFixed(1) + " dB";
+      if (isPlaying && currentSource) {
+        // Jeśli dźwięk już leci, renderujemy pętlę na nowo, co wywoła płynną zmianę
+        scheduleRender();
+      }
+    });
+
+    eqBandwidthSlider.addEventListener('change', function() {
+      let label = this.options[this.selectedIndex].text.split(' ')[0];
+      eqBandwidthVal.textContent = label + " Oct";
+      if (isPlaying && currentSource) {
+        scheduleRender();
+      }
+    });
+
+    // === SUBMIT ===
     // === SUBMIT ===
     function submit() {
       stopPlayback();
+      stopReference();
 
       if (freq == null) {
-        // Warning – yellow
         AnsIndicator.textContent   = "You must select a frequency before submitting.";
-        AnsIndicator.style.color   = "";              // keep default text color
+        AnsIndicator.style.color   = "";              
         InnerBox.style.borderColor = "#d4b800";
         InnerBox.style.background  = "rgba(212,184,0,0.10)";
         SubmitNextBtn.addEventListener('click', submit, { once: true });
@@ -296,32 +367,35 @@ let loopOut = 1;
       }
 
       if (freq == targetFreq.toString() + "Hz") {
-        //Correct – green
         AnsIndicator.textContent   = "Correct Answer!";
-        AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency 
+        AnsIndicator.style.color = "var(--accent2)"; 
         InnerBox.style.borderColor = "var(--accent2)";
         InnerBox.style.background  = "rgba(129,244,149,0.10)";
         statusEl.style.color       = "var(--accent2)";
         correct++;
         streak++;
+
+        // === ZAPIS DO CSV (SUKCES) ===
+        logEQRound(freq, true);
       } else {
-        //Wrong - red
-        AnsIndicator.textContent   = "Incorrect Answer :(, the correct frequency was: "+targetFreq+"Hz";
+        AnsIndicator.textContent   = "Incorrect Answer :(, the correct frequency was: " + targetFreq + "Hz";
         AnsIndicator.style.color   = "var(--wrong-light)";       
         InnerBox.style.borderColor = "var(--wrong-hard)";       
         InnerBox.style.background  = "rgba(255,111,89,0.10)";
         statusEl.style.color       = "var(--wrong-light)"; 
         wrong++;
         streak=0;      
+
+        // === ZAPIS DO CSV (PORAŻKA) ===
+        logEQRound(freq, false);
       }
 
-      //Disable radios
       freqs.forEach(function(radio) { radio.disabled = true; });
-
       SubmitNextBtn.textContent = "Next";
       SubmitNextBtn.addEventListener('click', next, { once: true });
       updateScore();
     }
+
     function drawWaveform(buf) {
       const dpr = window.devicePixelRatio || 1;
       const W   = waveContainer.clientWidth;
@@ -370,7 +444,6 @@ let loopOut = 1;
       }
     }
     
-    // ── Loop UI ───────────────────────────────────────────────────────
     function updateLoopUI() {
       loopFill.style.left  = (loopIn  * 100) + '%';
       loopFill.style.width = ((loopOut - loopIn) * 100) + '%';
@@ -380,9 +453,6 @@ let loopOut = 1;
       loopOutLabel.textContent = rawBuffer ? fmt(loopOut * rawBuffer.duration) : '--';
     }
 
-    // ── Offline render -- Option B ────────────────────────────────────
-    // Extracts the loop region, applies an equal-power crossfade AT the loop
-    // point (tail blended into head), producing a seamless looping buffer.
     async function renderLoopBuffer() {
       if (!rawBuffer) return;
       renderBadge.hidden = false;
@@ -393,14 +463,11 @@ let loopOut = 1;
       const outSample = Math.floor(loopOut * rawBuffer.length);
       const regionLen = Math.max(outSample - inSample, 1);
 
-      // Fade length: requested ms, but never more than half the region
       const fadeSamples = Math.min(
         Math.round(cfg.loopFadeSecs * sr),
         Math.floor(regionLen / 2)
       );
 
-      // Find the peak amplitude in the region so we can normalise headroom.
-      // We target -6 dBFS (linear 0.5) so +12 dB boost stays clean.
       let peak = 0;
       for (let ch = 0; ch < nCh; ch++) {
         const data = rawBuffer.getChannelData(ch);
@@ -409,7 +476,6 @@ let loopOut = 1;
           if (abs > peak) peak = abs;
         }
       }
-      // Normalise to -6 dBFS headroom (0.5 linear). If peak is tiny, skip.
       const normaliseGain = peak > 0.001 ? 0.5 / peak : 1.0;
 
       const out = AC.createBuffer(nCh, regionLen, sr);
@@ -418,19 +484,14 @@ let loopOut = 1;
         const src = rawBuffer.getChannelData(ch);
         const dst = out.getChannelData(ch);
 
-        // 1. Copy region, applying normalisation
         for (let i = 0; i < regionLen; i++) {
           dst[i] = src[inSample + i] * normaliseGain;
         }
 
-        // 2. Equal-power crossfade: blend the region's tail over its head.
-        //    This is the ONLY write pass -- no double-write bug.
-        //    At f=0:          tail weight=1, head weight=0  (tail dominates)
-        //    At f=fadeSamples: tail weight=0, head weight=1 (head dominates)
         for (let f = 0; f < fadeSamples; f++) {
           const angle   = (f / fadeSamples) * Math.PI * 0.5;
-          const wHead   = Math.sin(angle);  // 0 -> 1
-          const wTail   = Math.cos(angle);  // 1 -> 0
+          const wHead   = Math.sin(angle);  
+          const wTail   = Math.cos(angle);  
 
           const headVal = src[inSample + f]                             * normaliseGain;
           const tailVal = src[inSample + regionLen - fadeSamples + f]  * normaliseGain;
@@ -442,10 +503,20 @@ let loopOut = 1;
       loopBuffer = out;
       renderBadge.hidden = true;
 
-      // If already playing, hot-swap the buffer into the active slot
-      if (playingClip) {
-        const clip = playingClip;
-        playClip(clip);
+      // Płynny Hot-swap pętli
+      if (isPlaying && currentSource) {
+        stopPlayback();
+        const pipeline = startAudioPipeline(true);
+        currentSource = pipeline.source;
+        currentGain = pipeline.gain;
+        isPlaying = true;
+        PlayStopBtn.textContent = "Stop";
+        PlayStopBtn.classList.add("playing");
+        setStatus("PLAYING");
+      }
+      if (isReferencePlaying && referenceSource) {
+        stopReference();
+        toggleReference();
       }
     }
 
@@ -453,9 +524,9 @@ let loopOut = 1;
       clearTimeout(renderTimer);
       renderTimer = setTimeout(renderLoopBuffer, 80);
     }
-    new ResizeObserver(() => drawWaveform(rawBuffer))
-  .observe(waveContainer);
-    // ── Drag handles ──────────────────────────────────────────────────
+
+    new ResizeObserver(() => drawWaveform(rawBuffer)).observe(waveContainer);
+
     function makeDraggable(handle, onMove) {
       let dragging = false;
       handle.addEventListener('pointerdown', e => {
@@ -489,298 +560,234 @@ let loopOut = 1;
     });
 
     function next() {
-      // Re-enable radios
       freqs.forEach(function(radio) { radio.disabled = false; });
-      // Reset answer indicator
       AnsIndicator.textContent = "Submit Answer";
-      AnsIndicator.style.color = "";               // back to CSS default
-      // Uncheck any selected radio
+      AnsIndicator.style.color = "";               
       const checked = document.querySelector('input[name="freq"]:checked');
       if (checked) checked.checked = false;
-      // Reset button label
       SubmitNextBtn.textContent = "Submit";
       SubmitNextBtn.addEventListener('click', submit, { once: true });
-      // CHANGE 9: Reset box border/bg to CSS defaults
       InnerBox.style.borderColor = "";
       InnerBox.style.background  = "";
-      // Reset status color to default (var(--accent3))
-statusEl.style.color = "";
+      statusEl.style.color = "";
 
-freq = null;
-targetFreq = freqValues.get(newFreq());
+      freq = null;
+      targetFreq = freqValues.get(newFreq());
+      console.log('Target freq:', targetFreq);
 
-if (cfg.isShuffleMode) {
-  loadCurrentSelection();
-}
-}
+      if (cfg.isShuffleMode) {
+        loadCurrentSelection();
+      }
+    }
 
-
-    // Attach initial submit listener
     SubmitNextBtn.addEventListener('click', submit, { once: true });
 
-    // === STATUS HELPER ===
     function setStatus(msg, cls = '') {
       statusEl.textContent = msg;
-      // Preserve any inline color override; only touch className
       statusEl.className   = 'status ' + cls;
     }
+
     async function loadFile(filename) {
+      currentPlayingFile = filename;
+      const resp = await fetch('/raw-audio/?file=' + encodeURIComponent(filename));
+      rawBuffer = await AC.decodeAudioData(await resp.arrayBuffer());
 
-  const resp = await fetch(
-    '/raw-audio/?file=' +
-    encodeURIComponent(filename)
-  );
+      drawWaveform(rawBuffer);
+      updateLoopUI();
+      await renderLoopBuffer();
+    }
 
-  rawBuffer = await AC.decodeAudioData(
-    await resp.arrayBuffer()
-  );
+    // === GENEROWANIE FILTRA NA PODSTAWIE PARAMETRÓW UŻYTKOWNIKA ===
+    function startAudioPipeline(useEQ) {
+      if (!loopBuffer) return null;
 
-  drawWaveform(rawBuffer);
-  updateLoopUI();
-  await renderLoopBuffer();
-}
+      const source = AC.createBufferSource();
+      source.buffer = loopBuffer;
+      source.loop = true;
 
-    // === STOP PLAYBACK ===
+      const gainNode = AC.createGain();
+      gainNode.gain.value = 1;
+
+      if (useEQ) {
+        const filter = AC.createBiquadFilter();
+        filter.type = "peaking";
+        filter.frequency.value = targetFreq; 
+
+        // 1. Pobranie dynamicznej wartości podbicia (Gain) ze slidera
+        filter.gain.value = parseFloat(eqGainSlider.value);    
+
+        // 2. Pobranie szerokości oktawowej i przeliczenie jej matematycznie na stałą Q
+        const bandwidthOct = parseFloat(eqBandwidthSlider.value);
+        const calculatedQ = 1 / (2 * Math.sinh(Math.log(2) / 2 * bandwidthOct));
+        filter.Q.value = calculatedQ;
+
+        source.connect(filter);
+        filter.connect(gainNode);
+      } else {
+        source.connect(gainNode);
+      }
+
+      gainNode.connect(AC.destination);
+
+      source.loopStart = 0;
+      source.loopEnd = loopBuffer.duration;
+      source.start(0);
+
+      return { source, gain: gainNode };
+    }
 
     let currentSource = null;
-let currentGain = null;
-let isPlaying = false;
-function stopPlayback() {
-  if (currentSource) {
-    try {
-      currentSource.stop();
-    } catch(e) {}
+    let currentGain = null;
+    let isPlaying = false;
 
-    currentSource.disconnect();
-    currentSource = null;
-  }
+    function stopPlayback() {
+      if (currentSource) {
+        try { currentSource.stop(); } catch(e) {}
+        currentSource.disconnect();
+        currentSource = null;
+      }
+      if (currentGain) {
+        currentGain.disconnect();
+        currentGain = null;
+      }
+      isPlaying = false;
+      PlayStopBtn.textContent = "Play";
+      PlayStopBtn.classList.remove("playing");
+      setStatus("READY");
+    }
 
-  if (currentGain) {
-    currentGain.disconnect();
-    currentGain = null;
-  }
+    let referenceSource = null;
+    let referenceGain = null;
+    let isReferencePlaying = false;
 
-  isPlaying = false;
+    function stopReference() {
+      if (referenceSource) {
+        try { referenceSource.stop(); } catch(e) {}
+        referenceSource.disconnect();
+        referenceSource = null;
+      }
+      if (referenceGain) {
+        referenceGain.disconnect();
+        referenceGain = null;
+      }
+      document.getElementById("PlayReference").textContent = "Reference";
+      isReferencePlaying = false;
+    }
 
-  PlayStopBtn.textContent = "Play";
-  PlayStopBtn.classList.remove("playing");
-  setStatus("READY");
-}
-let referenceSource = null;
-let referenceGain = null;
-let isReferencePlaying = false;
-
-function stopReference() {
-  if (referenceSource) {
-    try { referenceSource.stop(); } catch(e) {}
-    referenceSource.disconnect();
-    referenceSource = null;
-  }
-
-  if (referenceGain) {
-    referenceGain.disconnect();
-    referenceGain = null;
-  }
-  PlayReference.textContent = "Reference";
-  isReferencePlaying = false;
-
-}
-async function toggleReference() {
-
-  // jeśli gra → stop
-if (isReferencePlaying) {
-  stopReference();
-  setStatus("READY");
-  document.getElementById("PlayReference").textContent = "Reference";
-  return;
-}
-
-  // zatrzymaj główny dźwięk
-  stopPlayback();
-
-  setStatus("LOADING REF...");
-
-  if (AC.state === 'suspended') {
-    await AC.resume();
-  }
-
-  const selectedFile =
-    document.getElementById("fileSelectorSettings").value;
-
-  const url =
-    `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
-
-  const resp = await fetch(url);
-  const arrayBuffer = await resp.arrayBuffer();
-
-  const buffer = await AC.decodeAudioData(arrayBuffer);
-
-  const source = AC.createBufferSource();
-  source.buffer = buffer;
-
-  const gain = AC.createGain();
-  gain.gain.value = 1;
-
-  source.connect(gain);
-  gain.connect(AC.destination);
-
-  source.loop = true;
-  source.start();
-
-  source.onended = stopReference;
-
-  referenceSource = source;
-  referenceGain = gain;
-  isReferencePlaying = true;
-
-  setStatus("REFERENCE");
-  document.getElementById("PlayReference").textContent = "Stop";
-}
-
-  document.getElementById('loopModeRow').addEventListener('click', e => {
-  const chip = e.target.closest('.chip');
-  if (!chip) return;
-
-  document.querySelectorAll('#loopModeRow .chip')
-    .forEach(c => c.classList.remove('active'));
-
-  chip.classList.add('active');
-
-  cfg.loopRestartOnSwitch =
-    (chip.dataset.mode === 'start');
-});
-  document.getElementById('sourceModeRow').addEventListener('click', async e => {
-  const chip = e.target.closest('.chip');
-  if (!chip) return;
-
-  document.querySelectorAll('#sourceModeRow .chip')
-    .forEach(c => c.classList.remove('active'));
-
-  chip.classList.add('active');
-
-  if (chip.id === 'btnModeShuffle') {
-    cfg.isShuffleMode = true;
-    fixedSourceRow.style.display = 'none';
-    shuffleSourceRow.style.display = 'block';
-  } else {
-    cfg.isShuffleMode = false;
-    fixedSourceRow.style.display = 'block';
-    shuffleSourceRow.style.display = 'none';
-  }
-
-  await loadCurrentSelection();
-});
-    // === PLAY / STOP ===
     PlayStopBtn.addEventListener('click', async () => {
-  if (isPlaying) {
-    stopPlayback();
-    return;
-  }
-  stopReference();
-  setStatus('PROCESSING...');
-  PlayStopBtn.disabled = true;
+      if (isPlaying) {
+        stopPlayback();
+        return;
+      }
+      stopReference();
+      setStatus('PLAYING');
+      PlayStopBtn.disabled = true;
 
-  try {
+      try {
+        if (AC.state === 'suspended') {
+          await AC.resume();
+        }
 
-    if (AC.state === 'suspended') {
-      await AC.resume();
-    }
+        const pipeline = startAudioPipeline(true);
+        if (!pipeline) throw new Error("Audio buffer not loaded yet.");
 
-    const selectedFile =
-      document.getElementById("fileSelectorSettings").value;
+        currentSource = pipeline.source;
+        currentGain = pipeline.gain;
+        isPlaying = true;
 
-    const url =
-      `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
+        currentSource.onended = () => { stopPlayback(); };
 
-    const resp = await fetch(url);
+        PlayStopBtn.textContent = "Stop";
+        PlayStopBtn.classList.add("playing");
+      }
+      catch(err) {
+        console.error(err);
+        setStatus("ERROR: " + err.message, "error");
+        stopPlayback();
+      }
+      finally {
+        PlayStopBtn.disabled = false;
+      }
+    });
 
-    if (!resp.ok) {
-      throw new Error(await resp.text());
-    }
+    async function toggleReference() {
+      if (isReferencePlaying) {
+        stopReference();
+        setStatus("READY");
+        return;
+      }
 
-    const arrayBuffer = await resp.arrayBuffer();
-
-    const processedBuffer =
-      await AC.decodeAudioData(arrayBuffer);
-
-    const source = AC.createBufferSource();
-    source.buffer = loopBuffer;
-
-    const gain = AC.createGain();
-    gain.gain.value = 1;
-
-    source.connect(gain);
-    gain.connect(AC.destination);
-
-    source.loop = true;
-
-    if (loopBuffer) {
-
-      const startOffset =
-        loopIn * processedBuffer.duration;
-
-      const loopStart =
-        loopIn * processedBuffer.duration;
-
-      const loopEnd =
-        loopOut * processedBuffer.duration;
-
-      source.loopStart = loopStart;
-      source.loopEnd   = loopEnd;
-
-      source.start(0, startOffset);
-
-    } else {
-
-      source.start();
-    }
-
-    source.onended = () => {
       stopPlayback();
-    };
+      setStatus("REFERENCE");
 
-    currentSource = source;
-    currentGain = gain;
+      if (AC.state === 'suspended') {
+        await AC.resume();
+      }
 
-    isPlaying = true;
+      try {
+        const pipeline = startAudioPipeline(false);
+        if (!pipeline) throw new Error("Audio buffer not loaded yet.");
 
-    PlayStopBtn.textContent = "Stop";
-    PlayStopBtn.classList.add("playing");
+        referenceSource = pipeline.source;
+        referenceGain = pipeline.gain;
+        isReferencePlaying = true;
 
-    setStatus("PLAYING");
+        referenceSource.onended = () => { stopReference(); setStatus("READY"); };
+        document.getElementById("PlayReference").textContent = "Stop";
+      } catch (err) {
+        console.error(err);
+        setStatus("ERROR REF: " + err.message, "error");
+        stopReference();
+      }
+    }
 
-  }
-  catch(err) {
+    document.getElementById("PlayReference").addEventListener("click", toggleReference);
 
-    console.error(err);
+    document.getElementById('loopModeRow').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
 
-    setStatus(
-      "ERROR: " + err.message,
-      "error"
-    );
+      document.querySelectorAll('#loopModeRow .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
 
-    stopPlayback();
-  }
-  finally {
-    PlayStopBtn.disabled = false;
-  }
-});
+      cfg.loopRestartOnSwitch = (chip.dataset.mode === 'start');
+    });
+
+    document.getElementById('sourceModeRow').addEventListener('click', async e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+
+      document.querySelectorAll('#sourceModeRow .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      if (chip.id === 'btnModeShuffle') {
+        cfg.isShuffleMode = true;
+        fixedSourceRow.style.display = 'none';
+        shuffleSourceRow.style.display = 'block';
+      } else {
+        cfg.isShuffleMode = false;
+        fixedSourceRow.style.display = 'block';
+        shuffleSourceRow.style.display = 'none';
+      }
+
+      await loadCurrentSelection();
+    });
+
     window.addEventListener('load', async () => {
-  const selectedFile =
-    document.getElementById('fileSelectorSettings').value;
+      const selectedFile = document.getElementById('fileSelectorSettings').value;
+      await loadFile(selectedFile);
+    });
 
-  await loadFile(selectedFile);
-});
-document
-  .getElementById('fileSelectorSettings')
-  .addEventListener('change', async function() {
+    document.getElementById('fileSelectorSettings').addEventListener('change', async function() {
+        currentPlayingFile = this.value;
+        await loadFile(this.value);
+    });
 
-    await loadFile(this.value);
-
-});
-
-document.getElementById("PlayReference")
-  .addEventListener("click", toggleReference);
+    // Powiązanie przycisku pobierania pliku CSV
+    const DownloadCsvBtn = document.getElementById('DownloadCsvBtn');
+    if (DownloadCsvBtn) {
+      DownloadCsvBtn.addEventListener('click', exportToCSV);
+    }
   </script>
 </body>
 </html>
