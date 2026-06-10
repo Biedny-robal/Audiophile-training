@@ -65,7 +65,7 @@
     <div class="bottom-controls">
       <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
 
-      <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
+      <button type="button" id="PlayReference" class="SubmitNextBtn">Reference</button>
     </div>
     <div class="waveform-wrap">
   <span class="loop-time-label" id="loopInLabel">0.00s</span>
@@ -85,12 +85,12 @@
 
   <span class="loop-time-label loop-time-right" id="loopOutLabel">—</span>
 </div>
-<ul class="radioList" id="radioList"></ul>
+<button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
 <details class="settings-panel">
   <summary class="settings-toggle">// settings</summary>
 
   <div class="settings-body">
-    
+
     <div class="setting-row">
       <span class="setting-label">Loop transition</span>
       <div class="chip-row" id="loopModeRow">
@@ -566,6 +566,77 @@ function stopPlayback() {
   PlayStopBtn.classList.remove("playing");
   setStatus("READY");
 }
+let referenceSource = null;
+let referenceGain = null;
+let isReferencePlaying = false;
+
+function stopReference() {
+  if (referenceSource) {
+    try { referenceSource.stop(); } catch(e) {}
+    referenceSource.disconnect();
+    referenceSource = null;
+  }
+
+  if (referenceGain) {
+    referenceGain.disconnect();
+    referenceGain = null;
+  }
+  PlayReference.textContent = "Reference";
+  isReferencePlaying = false;
+
+}
+async function toggleReference() {
+
+  // jeśli gra → stop
+if (isReferencePlaying) {
+  stopReference();
+  setStatus("READY");
+  document.getElementById("PlayReference").textContent = "Reference";
+  return;
+}
+
+  // zatrzymaj główny dźwięk
+  stopPlayback();
+
+  setStatus("LOADING REF...");
+
+  if (AC.state === 'suspended') {
+    await AC.resume();
+  }
+
+  const selectedFile =
+    document.getElementById("fileSelectorSettings").value;
+
+  const url =
+    `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
+
+  const resp = await fetch(url);
+  const arrayBuffer = await resp.arrayBuffer();
+
+  const buffer = await AC.decodeAudioData(arrayBuffer);
+
+  const source = AC.createBufferSource();
+  source.buffer = buffer;
+
+  const gain = AC.createGain();
+  gain.gain.value = 1;
+
+  source.connect(gain);
+  gain.connect(AC.destination);
+
+  source.loop = true;
+  source.start();
+
+  source.onended = stopReference;
+
+  referenceSource = source;
+  referenceGain = gain;
+  isReferencePlaying = true;
+
+  setStatus("REFERENCE");
+  document.getElementById("PlayReference").textContent = "Stop";
+}
+
   document.getElementById('loopModeRow').addEventListener('click', e => {
   const chip = e.target.closest('.chip');
   if (!chip) return;
@@ -601,12 +672,11 @@ function stopPlayback() {
 });
     // === PLAY / STOP ===
     PlayStopBtn.addEventListener('click', async () => {
-
   if (isPlaying) {
     stopPlayback();
     return;
   }
-
+  stopReference();
   setStatus('PROCESSING...');
   PlayStopBtn.disabled = true;
 
@@ -708,6 +778,9 @@ document
     await loadFile(this.value);
 
 });
+
+document.getElementById("PlayReference")
+  .addEventListener("click", toggleReference);
   </script>
 </body>
 </html>
