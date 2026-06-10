@@ -148,6 +148,7 @@
     <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
     <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
     <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+    <button type="button" id="DownloadCsvBtn" class="csv-btn">CSV</button>
   </div>
 </div>
 
@@ -169,6 +170,75 @@
   let gainDb = null;
   let answered = false;
   let correct = 0, wrong = 0, streak = 0;
+  let currentPlayingFile = 'unknown';
+
+
+  // === REJESTR HISTORII TESTÓW DLA CSV ===
+  const loudnessABHistory = [];
+
+function logLoudnessABRound(userChoice, isCorrectData) {
+    try {
+      // Wyciągnięcie aktywnego poziomu trudności
+      const activePresetChip = document.querySelector('#presetRow .chip.active');
+      const presetName = activePresetChip ? activePresetChip.textContent.trim() : 'Custom';
+      
+      // === POPRAWKA: POBIERANIE PEWNEJ ZMIENNEJ ===
+      const currentFileName = currentPlayingFile;
+
+      const logEntry = {
+        Timestamp: new Date().toISOString(),
+        AudioFile: currentFileName, // Zapisze faktyczną nazwę pliku, np. "drums.wav"
+        ShuffleMode: (cfg && cfg.isShuffleMode) ? 'on' : 'off',
+        DbDifference: gainDb ? gainDb.toFixed(1) : '0.0',
+        LouderSample: louderVersion,
+        UserAnswer: userChoice,
+        IsCorrect: isCorrectData,
+        ActivePreset: presetName,
+        ConfigMinDb: (cfg && cfg.rangeMin) ? cfg.rangeMin : 0,
+        ConfigMaxDb: (cfg && cfg.rangeMax) ? cfg.rangeMax : 0,
+        ConfigStepDb: (cfg && cfg.stepSize) ? cfg.stepSize : 0,
+        TotalCorrect: correct,
+        TotalWrong: wrong,
+        CurrentStreak: streak
+      };
+      
+      loudnessABHistory.push(logEntry);
+    } catch (e) {
+      console.error("Błąd zapisu rundy do CSV:", e);
+    }
+  }
+
+  function exportToCSV() {
+    try {
+      if (loudnessABHistory.length === 0) {
+        alert("Brak danych do wyeksportowania. Rozegraj przynajmniej jedną rundę i zatwierdź odpowiedź!");
+        return;
+      }
+      const headers = Object.keys(loudnessABHistory[0]);
+      const csvRows = [headers.join(',')];
+
+      for (const row of loudnessABHistory) {
+        const values = headers.map(header => {
+          const escaped = ('' + row[header]).replace(/"/g, '\\"');
+          return `"${escaped}"`;
+        });
+        csvRows.push(values.join(','));
+      }
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `loudness_ab_results_${new Date().toISOString().slice(0,10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      alert("Wystąpił błąd podczas generowania pliku CSV.");
+      console.error(e);
+    }
+  }
 
   let rawBuffer = null;
   let loopBuffer = null;
@@ -402,15 +472,17 @@
 
   async function loadCurrentSelection() {
     if (cfg.isShuffleMode) {
-      const randomFile = getSelectedShuffleFile();
-      await loadFile(randomFile);
+      currentPlayingFile = getSelectedShuffleFile();
+      await loadFile(currentPlayingFile);
     } else {
-      await loadFile(fileSelector.value);
+      currentPlayingFile = fileSelector.value;
+      await loadFile(currentPlayingFile);
     }
   }
 
   fileSelector.addEventListener('change', async () => {
-    if (!cfg.isShuffleMode) await loadFile(fileSelector.value);
+    currentPlayingFile = fileSelector.value; // <-- DODAJ TO
+    if (!cfg.isShuffleMode) await loadFile(currentPlayingFile);
   });
 
   // ── Sterowanie i Przełączanie pętli (Z uwzględnieniem trybów) ─────
@@ -527,7 +599,7 @@
     gainDb = pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function submit() {
+function submit() {
     stopAll();
     const selected = document.querySelector('input[name="answer"]:checked');
     if (!selected) {
@@ -544,12 +616,18 @@
       InnerBox.style.background = "rgba(129,244,149,0.10)";
       AnswerIndicator.style.color = "var(--accent2)";
       correct++; streak++;
+
+      // === ZAPIS DO CSV (SUKCES) ===
+      logLoudnessABRound(answer, true);
     } else {
       AnswerIndicator.textContent = `Wrong :( Correct: ${louderVersion} (+${gainDb} dB)`;
       InnerBox.style.borderColor = "var(--wrong-hard)";
       InnerBox.style.background = "rgba(255,111,89,0.10)";
       AnswerIndicator.style.color = "var(--wrong-light)";
       wrong++; streak = 0;
+
+      // === ZAPIS DO CSV (PORAŻKA) ===
+      logLoudnessABRound(answer, false);
     }
 
     document.querySelectorAll('input[name="answer"]').forEach(r => r.disabled = true);
@@ -662,9 +740,16 @@
 
   new ResizeObserver(() => drawWaveform(rawBuffer)).observe(waveContainer);
 
+// Przejdź na sam dół przed wywołaniem generateRound();
+  const DownloadCsvBtn = document.getElementById('DownloadCsvBtn');
+  if (DownloadCsvBtn) {
+    DownloadCsvBtn.addEventListener('click', exportToCSV);
+  }
+
   generateRound();
   SubmitNextBtn.onclick = submit;
 })();
+</script>
 </script>
 </body>
 </html>

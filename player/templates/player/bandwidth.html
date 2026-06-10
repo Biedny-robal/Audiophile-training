@@ -5,260 +5,682 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght=400;500;700&display=swap" rel="stylesheet">
 
   <title>Band trainer</title>
   <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
-  <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/bandwidth.css' %}">
 </head>
 <body>
-    <button id="HomeBtn"  class="corner-btn">
+<button id="HomeBtn" class="corner-btn">
   ← Menu
 </button>
-  <div class="aspect-overlay" id="aspectOverlay">
-    <h2>Please rotate or resize!</h2>
-    <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
+
+<div class="aspect-overlay" id="aspectOverlay">
+  <h2>Please rotate or resize!</h2>
+  <p>Make your window wider, or rotate your phone into landscape orientation to use this app.</p>
+</div>
+
+<div class="Box" id="InnerBox">
+  <h2 class="AnswerIndicator" id="AnswerIndicator">Which sample matches reference X?</h2>
+  <h3 class="TaskDescription">Play X, A and B — pick whether A or B is identical to the reference.</h3>
+  <h3 class="status" id="status">READY</h3>
+
+  <div class="bottom-controls">
+    <button type="button" id="PlayXBtn" class="PlayStopBtn">Play X</button>
+    <button type="button" id="PlayABtn" class="PlayStopBtn">Play A</button>
+    <button type="button" id="PlayBBtn" class="PlayStopBtn">Play B</button>
   </div>
 
-  <div class="Box" id="InnerBox">
-    <h2 class="AnswerIndicator" id="AnswerIndicator">Which sample matches reference X?</h2>
-    <h3 class="TaskDescription">Play X, A and B - pick whether A or B is identical to the reference.</h3>
-    <h3 class="status" id="status">READY</h3>
-    <div class="bottom-controls">
-      <button type="button" id="PlayXBtn" class="PlayStopBtn">Play X</button>
-      <button type="button" id="PlayABtn" class="PlayStopBtn">Play A</button>
-      <button type="button" id="PlayBBtn" class="PlayStopBtn">Play B</button>
-      <div class="file-selector-group">
+  <div class="waveform-wrap">
+    <span class="loop-time-label" id="loopInLabel">0.00s</span>
+    <div class="waveform-container" id="waveContainer">
+      <canvas id="waveCanvas"></canvas>
+      <div class="loop-overlay" id="loopOverlay">
+        <div class="loop-region-fill" id="loopFill"></div>
+        <div class="loop-handle loop-handle-in"  id="handleIn"></div>
+        <div class="loop-handle loop-handle-out" id="handleOut"></div>
+      </div>
+      <div class="wave-rendering-badge" id="renderBadge" hidden>rendering…</div>
+    </div>
+    <span class="loop-time-label loop-time-right" id="loopOutLabel">—</span>
+  </div>
+
+  <details class="settings-panel">
+    <summary class="settings-toggle">// settings</summary>
+    <div class="settings-body">
+
+      <div class="setting-row">
+        <span class="setting-label">Preset difficulty</span>
+        <div class="chip-row" id="presetRow">
+          <button class="chip" data-diff="easy">Easy</button>
+          <button class="chip active" data-diff="medium">Medium</button>
+          <button class="chip" data-diff="hard">Hard</button>
+        </div>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-row">
+        <span class="setting-label">Loop X-Fade</span>
+        <input type="range" id="slLoopFade" min="0" max="100" step="5" value="20">
+        <span class="setting-val" id="valLoopFade">20 ms</span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">Sample Switch X-Fade</span>
+        <input type="range" id="slSwitchFade" min="0" max="100" step="5" value="15">
+        <span class="setting-val" id="valSwitchFade">15 ms</span>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-label">Loop transition</span>
+        <div class="chip-row" id="loopModeRow">
+          <button class="chip active" data-mode="current">Keep current moment</button>
+          <button class="chip" data-mode="start">Restart loop</button>
+        </div>
+      </div>
+
+      <div class="setting-divider"></div>
+
+      <div class="setting-row">
+        <span class="setting-label">Selection Mode</span>
+        <div class="chip-row" id="sourceModeRow">
+          <button class="chip active" id="btnModeFixed">Fixed Single</button>
+          <button class="chip" id="btnModeShuffle">Shuffle Playlist</button>
+        </div>
+      </div>
+
+      <div class="setting-row" id="fixedSourceRow">
+        <span class="setting-label">Audio source</span>
         <select class="file-selector" id="fileSelector">
           {% for f in audio_files %}
           <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
           {% endfor %}
         </select>
-        <p class="file-selector-desc">audio source</p>
       </div>
-      <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit answer</button>
+
+      <div class="setting-row setting-row-top" id="shuffleSourceRow" style="display: none;">
+        <span class="setting-label">Shuffle playlist</span>
+        <div class="source-list">
+          {% for f in audio_files %}
+          <label class="source-item">
+            <input type="checkbox" class="shuffle-track-cb" value="{{ f }}" checked>
+            <span>{{ f }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
     </div>
+  </details>
 
-        <ul class="radioList">
-            <li class="radioLi">
-                <input type="radio" id="ansA" name="answer" value="A">
-                <label for="ansA">A = X</label>
-            </li>
-            <li class="radioLi">
-                <input type="radio" id="ansB" name="answer" value="B">
-                <label for="ansB">B = X</label>
-            </li>
-        </ul>
-         <div class="score-area">
-        <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
-        <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
-        <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
-      </div>
+  <ul class="radioList">
+    <li class="radioLi">
+      <input type="radio" id="ansA" name="answer" value="A">
+      <label for="ansA">A = X</label>
+    </li>
+    <li class="radioLi">
+      <input type="radio" id="ansB" name="answer" value="B">
+      <label for="ansB">B = X</label>
+    </li>
+  </ul>
+
+  <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
+
+  <div class="score-area">
+    <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
+    <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
+    <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
   </div>
+</div>
 
-  <script>
-    // === DOM REFERENCES ===
-    const AnsIndicator  = document.getElementById('AnswerIndicator');
-    const PlayXBtn      = document.getElementById('PlayXBtn');
-    const PlayABtn      = document.getElementById('PlayABtn');
-    const PlayBBtn      = document.getElementById('PlayBBtn');
-    const SubmitNextBtn = document.getElementById('SubmitNextBtn');
-    const InnerBox      = document.getElementById('InnerBox');
-    const statusEl      = document.getElementById('status');
-    const fileSelector  = document.getElementById('fileSelector');
-    // const scoreEl       = document.getElementById('score');
-    const scoreCorrectEl = document.getElementById("scoreCorrect");
-    const scoreWrongEl   = document.getElementById("scoreWrong");
-    const scoreStreakEl  = document.getElementById("scoreStreak");
-    let audioCtx;
-    let audioBuffer = null;
-    let currentSource = null;
-    let currentLabel = null;
-    let round = null; 
-    let matchVersion = null;
-    let score = 0;
-    let attempts = 0;
-    let correct = 0;
-    let wrong = 0;
-    let streak = 0;
-    const bandfilterPairs = [[0,44000],[50,18000],[70,16000],[90,14000],[110,12000],[140,10000],[200,8000],[250,6500]]; // pary z OJD lab 1
-    function updateScore() {
-      scoreCorrectEl.textContent = "✓ " + correct;
-      scoreWrongEl.textContent   = "✗ " + wrong;
-      scoreStreakEl.textContent  = "↯ " + streak;
+<script>
+(function() {
+  const AC = new (window.AudioContext || window.webkitAudioContext)();
+
+  const cfg = {
+    difficulty: 'medium', // easy, medium, hard
+    loopFadeSecs: 0.020,
+    switchFadeSecs: 0.015,
+    loopRestartOnSwitch: false,
+    isShuffleMode: false
+  };
+
+  // Dane bazowe
+  const bandfilterPairs = [
+    [0, 44000],  // Full Range
+    [50, 18000], 
+    [70, 16000], 
+    [90, 14000], 
+    [110, 12000], 
+    [140, 10000], 
+    [200, 8000], 
+    [250, 6500]
+  ];
+
+  let round = null;
+  let matchVersion = null;
+  let answered = false;
+  let correct = 0, wrong = 0, streak = 0;
+
+  let rawBuffer = null;
+  let loopBuffer = null;
+  let loopIn = 0;
+  let loopOut = 1;
+
+  // Zarządzanie aktywnym głosem (Crossfade między slotami)
+  let activeSlotKey = null; // 'X_slot', 'A_slot', 'B_slot' itp. do dynamicznego rozróżniania węzłów
+  let currentVoice = null;  // Przechowuje aktualnie grający obiekt { src, gain, filters }
+  let playingLabel = null;  // 'X', 'A', 'B'
+  let playStartedAt = 0;
+  let playOffsetStart = 0;
+  let renderTimer = null;
+
+  // Referencje DOM
+  const AnsIndicator   = document.getElementById('AnswerIndicator');
+  const PlayXBtn       = document.getElementById('PlayXBtn');
+  const PlayABtn       = document.getElementById('PlayABtn');
+  const PlayBBtn       = document.getElementById('PlayBBtn');
+  const SubmitNextBtn  = document.getElementById('SubmitNextBtn');
+  const InnerBox       = document.getElementById('InnerBox');
+  const statusEl       = document.getElementById('status');
+  const fileSelector   = document.getElementById('fileSelector');
+
+  const waveCanvas     = document.getElementById('waveCanvas');
+  const waveContainer  = document.getElementById('waveContainer');
+  const loopOverlay    = document.getElementById('loopOverlay');
+  const loopFill       = document.getElementById('loopFill');
+  const handleIn       = document.getElementById('handleIn');
+  const handleOut      = document.getElementById('handleOut');
+  const loopInLabel    = document.getElementById('loopInLabel');
+  const loopOutLabel   = document.getElementById('loopOutLabel');
+  const renderBadge    = document.getElementById('renderBadge');
+
+  const scoreCorrectEl = document.getElementById("scoreCorrect");
+  const scoreWrongEl   = document.getElementById("scoreWrong");
+  const scoreStreakEl  = document.getElementById("scoreStreak");
+
+  const fixedSourceRow   = document.getElementById("fixedSourceRow");
+  const shuffleSourceRow = document.getElementById("shuffleSourceRow");
+
+  function setStatus(msg) { statusEl.textContent = msg; }
+  function fmt(s)         { return s.toFixed(2) + 's'; }
+  function fmtBand(pair)  { return pair[0] + '–' + pair[1] + ' Hz'; }
+
+  function updateScore() {
+    scoreCorrectEl.textContent = "✓ " + correct;
+    scoreWrongEl.textContent   = "✗ " + wrong;
+    scoreStreakEl.textContent  = "↯ " + streak;
+  }
+
+  document.getElementById("HomeBtn").addEventListener("click", () => {
+    window.location.href = "/";
+  });
+
+  // ── Rysowanie fali (Waveform) ───────────────────────────────────
+  function drawWaveform(buf) {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = waveContainer.clientWidth;
+    const H   = waveContainer.clientHeight;
+    waveCanvas.width        = W * dpr;
+    waveCanvas.height       = H * dpr;
+    waveCanvas.style.width  = W + 'px';
+    waveCanvas.style.height = H + 'px';
+
+    const ctx = waveCanvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, W, H);
+
+    if (!buf) {
+      ctx.strokeStyle = 'rgba(142,141,190,0.15)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = (H / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
       }
-    document.getElementById("HomeBtn").addEventListener("click", () => {
-      window.location.href = "/";
+      ctx.strokeStyle = 'rgba(142,141,190,0.25)';
+      ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+      return;
+    }
+
+    const ch0   = buf.getChannelData(0);
+    const ch1   = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+    const total = ch0.length;
+    const mid   = H / 2;
+
+    ctx.strokeStyle = 'rgba(142,141,190,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(142,141,190,0.55)';
+    for (let col = 0; col < W; col++) {
+      const s0 = Math.floor((col / W) * total);
+      const s1 = Math.floor(((col + 1) / W) * total);
+      let mn = 0, mx = 0;
+      for (let s = s0; s < s1; s++) {
+        const v = ch1 ? (ch0[s] + ch1[s]) * 0.5 : ch0[s];
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+      }
+      ctx.fillRect(col, mid + mn * mid, 1, Math.max(1, (mx - mn) * mid));
+    }
+  }
+
+  function updateLoopUI() {
+    loopFill.style.left  = (loopIn  * 100) + '%';
+    loopFill.style.width = ((loopOut - loopIn) * 100) + '%';
+    handleIn.style.left  = (loopIn  * 100) + '%';
+    handleOut.style.left = (loopOut * 100) + '%';
+    loopInLabel.textContent  = rawBuffer ? fmt(loopIn  * rawBuffer.duration) : '0.00s';
+    loopOutLabel.textContent = rawBuffer ? fmt(loopOut * rawBuffer.duration) : '--';
+  }
+
+  // ── Wycinanie pętli z Crossfade ───────────────────────────────────
+  async function renderLoopBuffer() {
+    if (!rawBuffer) return;
+    renderBadge.hidden = false;
+
+    const sr        = rawBuffer.sampleRate;
+    const nCh       = rawBuffer.numberOfChannels;
+    const inSample  = Math.floor(loopIn  * rawBuffer.length);
+    const outSample = Math.floor(loopOut * rawBuffer.length);
+    const regionLen = Math.max(outSample - inSample, 1);
+
+    const fadeSamples = Math.min(
+      Math.round(cfg.loopFadeSecs * sr),
+      Math.floor(regionLen / 2)
+    );
+
+    let peak = 0;
+    for (let ch = 0; ch < nCh; ch++) {
+      const data = rawBuffer.getChannelData(ch);
+      for (let i = inSample; i < outSample; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    const normaliseGain = peak > 0.001 ? 0.5 / peak : 1.0;
+
+    const out = AC.createBuffer(nCh, regionLen, sr);
+
+    for (let ch = 0; ch < nCh; ch++) {
+      const src = rawBuffer.getChannelData(ch);
+      const dst = out.getChannelData(ch);
+
+      for (let i = 0; i < regionLen; i++) {
+        dst[i] = src[inSample + i] * normaliseGain;
+      }
+
+      for (let f = 0; f < fadeSamples; f++) {
+        const angle   = (f / fadeSamples) * Math.PI * 0.5;
+        const wHead   = Math.sin(angle);
+        const wTail   = Math.cos(angle);
+
+        const headVal = src[inSample + f]                             * normaliseGain;
+        const tailVal = src[inSample + regionLen - fadeSamples + f]  * normaliseGain;
+
+        dst[f] = headVal * wHead + tailVal * wTail;
+      }
+    }
+
+    loopBuffer = out;
+    renderBadge.hidden = true;
+
+    if (playingLabel) {
+      playSample(round[playingLabel], playingLabel);
+    }
+  }
+
+  function scheduleRender() {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderLoopBuffer, 80);
+  }
+
+  // Przeciąganie markerów
+  function makeDraggable(handle, onMove) {
+    let dragging = false;
+    handle.addEventListener('pointerdown', e => {
+      dragging = true;
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
     });
-    // Load audio from Django once per selector change
-    async function loadAudioFile(filename) {
-        if (!audioCtx) {
-            audioCtx = new AudioContext();
-        }
-        stopPlayback();
+    handle.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const rect = loopOverlay.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      onMove(frac);
+      updateLoopUI();
+      scheduleRender();
+    });
+    handle.addEventListener('pointerup', () => { dragging = false; });
+  }
+  makeDraggable(handleIn,  frac => { loopIn  = Math.min(frac, loopOut - 0.02); });
+  makeDraggable(handleOut, frac => { loopOut = Math.max(frac, loopIn  + 0.02); });
 
-        const url = `/bandwidth-trainer/?file=${encodeURIComponent(filename)}`;
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('Failed to load audio: ' + resp.statusText);
-        const arrayBuffer = await resp.arrayBuffer();
-        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  loopOverlay.addEventListener('pointerdown', e => {
+    if (e.target === handleIn || e.target === handleOut) return;
+    const rect = loopOverlay.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (Math.abs(frac - loopIn) < Math.abs(frac - loopOut))
+      loopIn  = Math.min(frac, loopOut - 0.02);
+    else
+      loopOut = Math.max(frac, loopIn  + 0.02);
+    updateLoopUI();
+    scheduleRender();
+  });
+
+  // ── Ładowanie Plików Audio ──────────────────────────────────────────
+  async function loadFile(filename) {
+    stopPlayback(0.005);
+    rawBuffer = null; loopBuffer = null;
+    loopIn = 0; loopOut = 1;
+    drawWaveform(null);
+    updateLoopUI();
+    setStatus('LOADING...');
+
+    const resp = await fetch('/bandwidth-trainer/?file=' + encodeURIComponent(filename));
+    if (!resp.ok) throw new Error(await resp.text());
+    rawBuffer = await AC.decodeAudioData(await resp.arrayBuffer());
+
+    drawWaveform(rawBuffer);
+    updateLoopUI();
+    await renderLoopBuffer();
+    setStatus('READY');
+  }
+
+  function getSelectedShuffleFile() {
+    const checked = Array.from(document.querySelectorAll('.shuffle-track-cb:checked')).map(cb => cb.value);
+    if (checked.length === 0) return fileSelector.value;
+    return checked[Math.floor(Math.random() * checked.length)];
+  }
+
+  async function loadCurrentSelection() {
+    if (cfg.isShuffleMode) {
+      await loadFile(getSelectedShuffleFile());
+    } else {
+      await loadFile(fileSelector.value);
     }
+  }
 
-        fileSelector.addEventListener('change', (e) => {
-            loadAudioFile(e.target.value).catch(err => {
-                setStatus('ERROR: ' + err.message, 'error');
-            });
-        });
-    
-        loadAudioFile(fileSelector.value).catch(err => {
-            setStatus('ERROR: ' + err.message, 'error');
-        });
+  fileSelector.addEventListener('change', async () => {
+    if (!cfg.isShuffleMode) await loadFile(fileSelector.value);
+  });
 
-    
-    function CreateNewBandwidthTest() {
-        const i = Math.floor(Math.random() * bandfilterPairs.length);
-        let   j = Math.floor(Math.random() * bandfilterPairs.length);
-        while (j === i) j = Math.floor(Math.random() * bandfilterPairs.length);
-        const ref = bandfilterPairs[i], alt = bandfilterPairs[j];
-        matchVersion = Math.random() < 0.5 ? 'A' : 'B';
-        round = {
-            X: ref,
-            A: matchVersion === 'A' ? ref : alt,
-            B: matchVersion === 'B' ? ref : alt,
-        };
-    }
-    // https://developer.mozilla.org/en-US/docs/Web/API/BiquadFilterNode
-    function playSample(pair, label, btn) {
-        if (currentLabel === label) { stopPlayback(); return; }  
-        stopPlayback();
-        if (!audioBuffer) {
-            setStatus('Audio not loaded yet, please wait...', 'error');
-            return;
-        }
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+  // ── Tworzenie Nowego Testu (Logika Poziomów Trudności) ───────────────
+  function CreateNewBandwidthTest() {
+    const len = bandfilterPairs.length;
+    let i = Math.floor(Math.random() * len);
+    let j = 0;
 
-        const [lowFreq, highFreq] = pair;
-        const source = audioCtx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.loop = true;
-
-        const highpass = audioCtx.createBiquadFilter();
-        highpass.type = 'highpass';
-        highpass.frequency.value = lowFreq;
-        highpass.Q.value = 0.7071;
-
-        const lowpass = audioCtx.createBiquadFilter();
-        lowpass.type = 'lowpass';
-        lowpass.frequency.value = highFreq;
-        lowpass.Q.value = 0.7071;
-
-        source.connect(highpass).connect(lowpass).connect(audioCtx.destination);
-        source.start();
-
-        currentSource = source;
-        currentLabel = label;
-        btn.textContent = 'Stop ' + label;
-        setStatus('PLAYING ' + label);
-    }
-
-    function fmtBand(pair) {
-      const [low, high] = pair;
-      return low + '–' + high + ' Hz';
-    }
-
-   
-
-    // === SUBMIT ===
-    function submit() {
-      stopPlayback();
-
-      const selected = document.querySelector('input[name="answer"]:checked');
-
-      if (selected == null) {
-        AnsIndicator.textContent   = "You must select an answer before submitting.";
-        AnsIndicator.style.color   = "";              // keep default text color
-        InnerBox.style.borderColor = "#d4b800";
-        InnerBox.style.background  = "rgba(212,184,0,0.10)";
-        SubmitNextBtn.addEventListener('click', submit, { once: true });
-        return;
+    if (cfg.difficulty === 'easy') {
+      // Duża różnica w pasmach: minimum 4 kroki odległości w tabeli
+      let possible = [];
+      for (let idx = 0; idx < len; idx++) {
+        if (Math.abs(idx - i) >= 4) possible.push(idx);
       }
-
-      attempts++;
-
-      const other = matchVersion === 'A' ? 'B' : 'A';
-
-      if (selected.value === matchVersion) {
-        correct++;
-        streak++;
-        AnsIndicator.textContent   = "Correct! X = " + matchVersion + " (band " + fmtBand(round.X) + "). Odd one was " + other + " (" + fmtBand(round[other]) + ").";
-        AnsIndicator.style.color   = "var(--accent2)"; // use CSS variable for consistency
-        InnerBox.style.borderColor = "var(--accent2)";
-        InnerBox.style.background  = "rgba(129,244,149,0.10)";
-        statusEl.style.color       = "var(--accent2)";
+      if (possible.length === 0) possible = [0, len - 1]; // fallback
+      j = possible[Math.floor(Math.random() * possible.length)];
+    } else if (cfg.difficulty === 'hard') {
+      // Bardzo trudne: pasma sąsiadujące bezpośrednio (różnica 1 kroku)
+      let possible = [];
+      if (i > 0) possible.push(i - 1);
+      if (i < len - 1) possible.push(i + 1);
+      j = possible[Math.floor(Math.random() * possible.length)];
+    } else {
+      // Medium (Dotychczasowy standard): Różnica średnia (2 lub 3 kroki odległości)
+      let possible = [];
+      for (let idx = 0; idx < len; idx++) {
+        const dist = Math.abs(idx - i);
+        if (dist === 2 || dist === 3) possible.push(idx);
+      }
+      if (possible.length === 0) { // w razie braku, jakikolwiek inny
+        j = Math.floor(Math.random() * len);
+        while (j === i) j = Math.floor(Math.random() * len);
       } else {
-        AnsIndicator.textContent   = "Incorrect :( X = " + matchVersion + " (band " + fmtBand(round.X) + "). You picked " + selected.value + " (" + fmtBand(round[selected.value]) + ").";
-        AnsIndicator.style.color   = "var(--wrong-light)";
-        InnerBox.style.borderColor = "var(--wrong-hard)";
-        InnerBox.style.background  = "rgba(255,111,89,0.10)";
-        statusEl.style.color       = "var(--wrong-light)";
-         wrong++;
-        streak=0;
+        j = possible[Math.floor(Math.random() * possible.length)];
       }
-
-      updateScore();
-
-      //Disable radios
-      document.querySelectorAll('input[name="answer"]').forEach(function(radio) { radio.disabled = true; });
-
-      SubmitNextBtn.textContent = "Next";
-      SubmitNextBtn.addEventListener('click', next, { once: true });
     }
 
-    function next() {
+    const ref = bandfilterPairs[i];
+    const alt = bandfilterPairs[j];
+    matchVersion = Math.random() < 0.5 ? 'A' : 'B';
+
+    round = {
+      X: ref,
+      A: matchVersion === 'A' ? ref : alt,
+      B: matchVersion === 'B' ? ref : alt,
+    };
+  }
+
+  // ── Odtwarzanie Próbek Bez Klików (Z X-Fadem i zachowaniem czasu) ───
+  function currentOffset() {
+    if (!loopBuffer || !currentVoice) return 0;
+    const elapsed = AC.currentTime - playStartedAt + playOffsetStart;
+    return ((elapsed % loopBuffer.duration) + loopBuffer.duration) % loopBuffer.duration;
+  }
+
+  function killVoice(voiceObj, fadeSecs) {
+    if (!voiceObj) return;
+    const now = AC.currentTime;
+    voiceObj.gain.gain.setValueAtTime(voiceObj.gain.gain.value, now);
+    voiceObj.gain.gain.linearRampToValueAtTime(0, now + fadeSecs);
+    setTimeout(() => {
+      try { voiceObj.src.stop(); } catch(_) {}
+    }, (fadeSecs + 0.05) * 1000);
+  }
+
+  function stopPlayback(fadeSecs) {
+    const f = fadeSecs !== undefined ? fadeSecs : cfg.switchFadeSecs;
+    if (currentVoice) {
+      killVoice(currentVoice, f);
+      currentVoice = null;
+    }
+    playingLabel = null;
+    PlayXBtn.classList.remove('playing');
+    PlayABtn.classList.remove('playing');
+    PlayBBtn.classList.remove('playing');
+    PlayXBtn.textContent = "Play X";
+    PlayABtn.textContent = "Play A";
+    PlayBBtn.textContent = "Play B";
+    if (!answered) setStatus('READY');
+  }
+
+  function playSample(pair, label) {
+    if (!loopBuffer) return;
+    if (AC.state === 'suspended') AC.resume();
+
+    // Jeśli kliknięto ponownie to samo, zatrzymaj
+    if (playingLabel === label) {
       stopPlayback();
-
-      CreateNewBandwidthTest();
-      document.querySelectorAll('input[name="answer"]').forEach(function(radio) { radio.disabled = false; radio.checked = false; });
-
-      AnsIndicator.textContent = "Which sample matches reference X?";
-      AnsIndicator.style.color = "";              
-
-      SubmitNextBtn.textContent = "Submit";
-      SubmitNextBtn.addEventListener('click', submit, { once: true });
-      InnerBox.style.borderColor = "";
-      InnerBox.style.background  = "";
-      statusEl.style.color = "";
+      return;
     }
 
+    const fade = cfg.switchFadeSecs;
+    const now = AC.currentTime;
 
-    SubmitNextBtn.addEventListener('click', submit, { once: true });
-
-    // === STATUS HELPER ===
-    function setStatus(msg, cls = '') {
-      statusEl.textContent = msg;
-      statusEl.className   = 'status ' + cls;
+    let offset = 0;
+    if (!cfg.loopRestartOnSwitch && playingLabel !== null) {
+      offset = currentOffset();
     }
 
-    // === STOP PLAYBACK ===
-    function stopPlayback() {
-      if (currentSource) {
-        currentSource.onended = null;
-        try { currentSource.stop(); } catch (e) {}
-        currentSource = null;
-      }
-      currentLabel = null;
-      PlayXBtn.textContent = "Play X";
-      PlayABtn.textContent = "Play A";
-      PlayBBtn.textContent = "Play B";
-      setStatus('READY');
+    // Wygaś dotychczas grający głos
+    if (currentVoice) {
+      killVoice(currentVoice, fade);
     }
 
-    // === PLAY / STOP ===
-    PlayXBtn.addEventListener('click', () => playSample(round.X, 'X', PlayXBtn));
-    PlayABtn.addEventListener('click', () => playSample(round.A, 'A', PlayABtn));
-    PlayBBtn.addEventListener('click', () => playSample(round.B, 'B', PlayBBtn));
+    const [lowFreq, highFreq] = pair;
 
+    const gainNode = AC.createGain();
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(1.0, now + fade);
+
+    const highpass = AC.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = lowFreq;
+    highpass.Q.value = 0.7071;
+
+    const lowpass = AC.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = highFreq;
+    lowpass.Q.value = 0.7071;
+
+    const srcNode = AC.createBufferSource();
+    srcNode.buffer = loopBuffer;
+    srcNode.loop = true;
+
+    // Połączenie: Src -> Highpass -> Lowpass -> Gain -> Destination
+    srcNode.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(gainNode);
+    gainNode.connect(AC.destination);
+
+    srcNode.start(0, offset);
+
+    currentVoice = { src: srcNode, gain: gainNode, filters: [highpass, lowpass] };
+    playingLabel = label;
+    playStartedAt = now;
+    playOffsetStart = offset;
+
+    // Aktualizacja wizualna klas przycisków
+    PlayXBtn.classList.toggle('playing', label === 'X');
+    PlayABtn.classList.toggle('playing', label === 'A');
+    PlayBBtn.classList.toggle('playing', label === 'B');
+
+    PlayXBtn.textContent = label === 'X' ? "Stop" : "Play X";
+    PlayABtn.textContent = label === 'A' ? "Stop" : "Play A";
+    PlayBBtn.textContent = label === 'B' ? "Stop" : "Play B";
+
+    setStatus('PLAYING ' + label);
+  }
+
+  async function ensureReady() {
+    if (!loopBuffer) await loadCurrentSelection();
+  }
+
+  PlayXBtn.addEventListener('click', async () => { await ensureReady(); playSample(round.X, 'X'); });
+  PlayABtn.addEventListener('click', async () => { await ensureReady(); playSample(round.A, 'A'); });
+  PlayBBtn.addEventListener('click', async () => { await ensureReady(); playSample(round.B, 'B'); });
+
+  // ── Walidacja Odpowiedzi (Submit / Next) ───────────────────────────
+  function submit() {
+    stopPlayback(0.005);
+    const selected = document.querySelector('input[name="answer"]:checked');
+
+    if (!selected) {
+      AnsIndicator.textContent = "Select an answer first.";
+      InnerBox.style.borderColor = "#d4b800";
+      InnerBox.style.background  = "rgba(212,184,0,0.10)";
+      return;
+    }
+
+    answered = true;
+    const answer = selected.value;
+    const other = matchVersion === 'A' ? 'B' : 'A';
+
+    if (answer === matchVersion) {
+      correct++; streak++;
+      AnsIndicator.textContent = `Correct! X = ${matchVersion} (${fmtBand(round.X)}). Odd one was ${other} (${fmtBand(round[other])}).`;
+      InnerBox.style.borderColor = "var(--accent2)";
+      InnerBox.style.background = "rgba(129,244,149,0.10)";
+      AnsIndicator.style.color = "var(--accent2)";
+    } else {
+      wrong++; streak = 0;
+      AnsIndicator.textContent = `Incorrect :( X = ${matchVersion} (${fmtBand(round.X)}). You picked ${answer} (${fmtBand(round[answer])}).`;
+      InnerBox.style.borderColor = "var(--wrong-hard)";
+      InnerBox.style.background = "rgba(255,111,89,0.10)";
+      AnsIndicator.style.color = "var(--wrong-light)";
+    }
+
+    document.querySelectorAll('input[name="answer"]').forEach(r => r.disabled = true);
+    SubmitNextBtn.textContent = "Next";
+    SubmitNextBtn.onclick = next;
+    updateScore();
+  }
+
+  async function next() {
+    answered = false;
     CreateNewBandwidthTest();
-  </script>
+
+    if (cfg.isShuffleMode) {
+      await loadCurrentSelection();
+    }
+
+    AnsIndicator.textContent = "Which sample matches reference X?";
+    AnsIndicator.style.color = "";
+    InnerBox.style.borderColor = "";
+    InnerBox.style.background = "";
+
+    document.querySelectorAll('input[name="answer"]').forEach(r => {
+      r.checked = false;
+      r.disabled = false;
+    });
+
+    SubmitNextBtn.textContent = "Submit";
+    SubmitNextBtn.onclick = submit;
+    setStatus("READY");
+  }
+
+  // ── Event Listeners dla Panelu Ustawień ────────────────────────────
+  
+  // Suwaki Crossfade
+  document.getElementById('slLoopFade').addEventListener('input', function() {
+    cfg.loopFadeSecs = parseFloat(this.value) / 1000;
+    document.getElementById('valLoopFade').textContent = this.value + ' ms';
+    scheduleRender();
+  });
+
+  document.getElementById('slSwitchFade').addEventListener('input', function() {
+    cfg.switchFadeSecs = parseFloat(this.value) / 1000;
+    document.getElementById('valSwitchFade').textContent = this.value + ' ms';
+  });
+
+  // Loop Mode (Current moment vs Restart)
+  document.getElementById('loopModeRow').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#loopModeRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    cfg.loopRestartOnSwitch = (chip.dataset.mode === 'start');
+  });
+
+  // Selection Mode (Fixed vs Shuffle)
+  document.getElementById('sourceModeRow').addEventListener('click', async e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#sourceModeRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+
+    if (chip.id === 'btnModeShuffle') {
+      cfg.isShuffleMode = true;
+      fixedSourceRow.style.display = 'none';
+      shuffleSourceRow.style.display = 'block';
+    } else {
+      cfg.isShuffleMode = false;
+      fixedSourceRow.style.display = 'block';
+      shuffleSourceRow.style.display = 'none';
+    }
+    await loadCurrentSelection();
+  });
+
+  // Poziomy Trudności
+  document.getElementById('presetRow').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    document.querySelectorAll('#presetRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+
+    cfg.difficulty = chip.dataset.diff;
+    CreateNewBandwidthTest();
+  });
+
+  // Automatyczne dopasowanie płótna przy zmianie rozmiaru okna
+  new ResizeObserver(() => drawWaveform(rawBuffer)).observe(waveContainer);
+
+  // Inicjalizacja pierwszej rundy
+  CreateNewBandwidthTest();
+  SubmitNextBtn.onclick = submit;
+  loadCurrentSelection();
+})();
+</script>
 </body>
 </html>

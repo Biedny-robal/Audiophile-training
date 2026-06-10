@@ -152,6 +152,7 @@
         <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
         <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
         <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+        <button type="button" id="DownloadCsvBtn" class="csv-btn">CSV</button>
       </div>
       <button type="button" id="NextBtn" class="NextBtn" disabled>Next</button>
     </div>
@@ -186,6 +187,76 @@
     let targetDb = 0, answered = false;
     let correct = 0, wrong = 0, streak = 0;
 
+   // === REJESTR HISTORII TESTÓW DLA CSV ===
+    const loudnessDeltaHistory = [];
+
+    function logLoudnessDeltaRound(userVal, isCorrectData) {
+      try {
+        // Wyciągamy nazwę aktywnego presetu
+        const activePresetChip = document.querySelector('#presetRow .chip.active');
+        const presetName = activePresetChip ? activePresetChip.textContent.trim() : 'Custom';
+
+        // Bezpieczne pobranie nazwy pliku
+        const currentFileName = (cfg && cfg.currentFile) ? cfg.currentFile : 'unknown_file';
+
+        const logEntry = {
+          Timestamp: new Date().toISOString(),
+          AudioFile: currentFileName,
+          ShuffleMode: (cfg && cfg.shuffle) ? 'on' : 'off',
+          TargetDeltaDb: targetDb.toFixed(1),
+          UserAnswerDb: userVal.toFixed(1),
+          IsCorrect: isCorrectData,
+          ErrorDb: (userVal - targetDb).toFixed(1),
+          ActivePreset: presetName,
+          ConfigDirection: (cfg && cfg.direction) ? cfg.direction : 'mixed',
+          ConfigMinDb: (cfg && cfg.rangeMin) ? cfg.rangeMin : 0,
+          ConfigMaxDb: (cfg && cfg.rangeMax) ? cfg.rangeMax : 0,
+          ConfigStepDb: (cfg && cfg.stepSize) ? cfg.stepSize : 0,
+          OptionsCount: (cfg && cfg.numOptions) ? cfg.numOptions : 0,
+          TotalCorrect: correct,
+          TotalWrong: wrong,
+          CurrentStreak: streak
+        };
+        
+        loudnessDeltaHistory.push(logEntry);
+      } catch (e) {
+        console.error("Błąd podczas zapisywania rundy do CSV:", e);
+      }
+    }
+
+    function exportToCSV() {
+      try {
+        if (loudnessDeltaHistory.length === 0) {
+          alert("Brak danych do wyeksportowania. Rozegraj przynajmniej jedną rundę i zatwierdź odpowiedź!");
+          return;
+        }
+        
+        const headers = Object.keys(loudnessDeltaHistory[0]);
+        const csvRows = [headers.join(',')];
+
+        for (const row of loudnessDeltaHistory) {
+          const values = headers.map(header => {
+            const escaped = ('' + row[header]).replace(/"/g, '\\"');
+            return `"${escaped}"`;
+          });
+          csvRows.push(values.join(','));
+        }
+
+        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `loudness_delta_results_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        alert("Wystąpił błąd podczas generowania pliku CSV. Sprawdź konsolę przeglądarki (F12).");
+        console.error(e);
+      }
+    }
+
     // ── Audio state ───────────────────────────────────────────────────
     let rawBuffer  = null;   // original decoded file
     let loopBuffer = null;   // pre-rendered seamless loop
@@ -208,6 +279,10 @@
     const SubBtn          = document.getElementById('SubBtn');
     const answerGrid      = document.getElementById('answerGrid');
     const NextBtn         = document.getElementById('NextBtn');
+    const DownloadCsvBtn = document.getElementById('DownloadCsvBtn');
+    if (DownloadCsvBtn) {
+      DownloadCsvBtn.addEventListener('click', exportToCSV);
+    }
     const InnerBox        = document.getElementById('InnerBox');
     const waveCanvas      = document.getElementById('waveCanvas');
     const waveContainer   = document.getElementById('waveContainer');
@@ -628,7 +703,7 @@
       });
     }
 
-    // ── Answer checking ───────────────────────────────────────────────
+// ── Answer checking ───────────────────────────────────────────────
     function checkAnswer(val, btn) {
       if (answered) return;
       answered = true;
@@ -650,6 +725,9 @@
         InnerBox.style.background  = 'rgba(129,244,149,0.10)';
         statusEl.style.color       = 'var(--accent2)';
         setStatus('CORRECT');
+
+        // === ZAPIS DO CSV (SUKCES) ===
+        logLoudnessDeltaRound(val, true);
       } else {
         wrong++; streak = 0;
         AnsIndicator.textContent   = 'Incorrect -- answer was ' + (targetDb > 0 ? '+' : '') + targetDb.toFixed(1) + ' dB';
@@ -658,6 +736,9 @@
         InnerBox.style.background  = 'rgba(255,111,89,0.10)';
         statusEl.style.color       = 'var(--wrong-light)';
         setStatus('WRONG');
+
+        // === ZAPIS DO CSV (PORAŻKA) ===
+        logLoudnessDeltaRound(val, false);
       }
       NextBtn.disabled = false;
       updateScore();

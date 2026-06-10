@@ -42,3 +42,27 @@ html, body {
   background: rgba(0, 0, 0, 0.18);
 }
 
+/* ── CSV Export Button ──────────────────────────────────────────── */
+.csv-btn {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.6rem;
+  font-family: inherit;
+  font-size: clamp(0.65rem, 1.4vw, 0.75rem);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-left: auto; /* Odpycha przycisk do prawej strony */
+  transition: all 0.2s ease;
+}
+
+.csv-btn:hover {
+  color: var(--text);
+  border-color: var(--accent1);
+  background: rgba(142, 141, 190, 0.1);
+}
+
+.csv-btn:active {
+  transform: scale(0.96);
+}
