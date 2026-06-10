@@ -221,3 +221,237 @@
           left:20px;
           z-index:9999;
 }
+/* ── Waveform + Loop region (Import z loudness.css) ─────────── */
+.waveform-wrap {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: clamp(0.4rem, 1vw, 0.7rem);
+  margin: 1rem 0;
+}
+.loop-time-label {
+  font-size: clamp(0.55rem, 1.1vw, 0.65rem);
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 3.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.loop-time-right {
+  text-align: right;
+}
+.waveform-container {
+  position: relative;
+  flex: 1;
+  height: clamp(48px, 8vw, 72px);
+  border: 2px solid var(--accent1-muted);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+  cursor: crosshair;
+}
+#waveCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.loop-overlay {
+  position: absolute;
+  inset: 0;
+}
+.loop-region-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(142, 141, 190, 0.18);
+  border-left:  2px solid var(--accent1);
+  border-right: 2px solid var(--accent1);
+  pointer-events: none;
+}
+.loop-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  z-index: 2;
+}
+.loop-handle::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent1);
+  transition: background 0.13s ease;
+}
+.loop-handle:hover::after {
+  background: var(--accent3);
+}
+.wave-rendering-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent3);
+  pointer-events: none;
+}
+
+/* ── Settings panel 1:1 z loudness.css ─────────────────────── */
+.settings-panel {
+  width: 100%;
+  border: 2px solid var(--accent1-muted);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+.settings-toggle {
+  display: block;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.7rem, 1.5vw, 1rem);
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(0.65rem, 1.3vw, 0.75rem);
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.settings-toggle::-webkit-details-marker { display: none; }
+.settings-toggle::before {
+  content: '▶ ';
+  font-size: 0.6em;
+  vertical-align: middle;
+}
+details[open] .settings-toggle::before { content: '▼ '; }
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.5rem, 1.2vw, 0.75rem);
+  padding: clamp(0.6rem, 1.5vw, 1rem);
+  border-top: 1px solid var(--accent1-muted);
+}
+.setting-label {
+  font-size: clamp(0.62rem, 1.3vw, 0.72rem);
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  min-width: 7rem;
+  flex-shrink: 0;
+}
+.setting-val {
+  font-size: clamp(0.65rem, 1.3vw, 0.75rem);
+  font-weight: 500;
+  color: var(--text);
+  min-width: 3rem;
+  text-align: right;
+}
+.setting-row input[type="range"] {
+  flex: 1;
+  min-width: 80px;
+  accent-color: var(--accent1);
+}
+
+/* ── Chip buttons (Shared settings toggle style) ────────────── */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.chip {
+  padding: clamp(0.18rem, 0.5vw, 0.28rem) clamp(0.45rem, 1vw, 0.7rem);
+  border: 2px solid var(--accent1-muted);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Roboto Mono', monospace;
+  font-size: clamp(0.6rem, 1.2vw, 0.68rem);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.13s ease, color 0.13s ease, background 0.13s ease;
+}
+.chip:hover {
+  border-color: var(--accent1);
+  color: var(--text);
+}
+.chip.active {
+  border-color: var(--accent1);
+  background: var(--accent1);
+  color: var(--bg);
+}
+.setting-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--accent1-muted);
+  opacity: 0.4;
+  margin: 0.1rem 0;
+}
+
+/* Stan aktywny (odtwarzanie) dla Play A / Play B */
+.PlayStopBtn.playing {
+  background: rgba(142, 141, 190, 0.22);
+  color: var(--accent3);
+  border-color: var(--accent3);
+}
+
+/* ── Obsługa list i trybów Shuffle (Zgodnie z loudness.css) ── */
+.setting-row-top {
+  align-items: flex-start;
+}
+
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 150px;
+  overflow-y: auto;
+  width: 100%;
+  padding: 0.2rem;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: clamp(0.62rem, 1.3vw, 0.72rem);
+  color: var(--text);
+  user-select: none;
+}
+
+.source-item input[type="checkbox"] {
+  accent-color: var(--accent1);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.setting-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--accent1-muted);
+  opacity: 0.4;
+  margin: 0.4rem 0;
+}
+
+/* Dostosowanie suwaków w panelu */
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.4rem, 1vw, 0.7rem);
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+/* Podświetlenie aktywnego przycisku odtwarzania w systemie AB */
+.PlayStopBtn.playing {
+  background: rgba(142, 141, 190, 0.22) !important;
+  color: var(--accent3) !important;
+  border-color: var(--accent3) !important;
+}

@@ -10,6 +10,7 @@
   <title>EQ Trainer</title>
   <link rel="stylesheet" href="{% static 'player/css/base.css' %}">
   <link rel="stylesheet" href="{% static 'player/css/index.css' %}">
+  <link rel="stylesheet" href="{% static 'player/css/loudness_ab.css' %}">
 </head>
 <body>
   <button id="HomeBtn"  class="corner-btn">
@@ -63,16 +64,93 @@
     </ul>
     <div class="bottom-controls">
       <button type="button" id="PlayStopBtn" class="PlayStopBtn">Play</button>
-      <div class="file-selector-group">
-        <select class="file-selector" id="fileSelector">
-          {% for f in audio_files %}
-          <option value="{{ f }}"{% if forloop.first %} selected{% endif %}>{{ f }}</option>
-          {% endfor %}
-        </select>
-        <p class="file-selector-desc">audio source</p>
-      </div>
+
       <button type="button" id="SubmitNextBtn" class="SubmitNextBtn">Submit</button>
     </div>
+    <div class="waveform-wrap">
+  <span class="loop-time-label" id="loopInLabel">0.00s</span>
+  <div class="waveform-container" id="waveContainer">
+    <canvas id="waveCanvas"></canvas>
+
+    <div class="loop-overlay" id="loopOverlay">
+      <div class="loop-region-fill" id="loopFill"></div>
+      <div class="loop-handle loop-handle-in" id="handleIn"></div>
+      <div class="loop-handle loop-handle-out" id="handleOut"></div>
+    </div>
+
+    <div class="wave-rendering-badge" id="renderBadge" hidden>
+      rendering…
+    </div>
+  </div>
+
+  <span class="loop-time-label loop-time-right" id="loopOutLabel">—</span>
+</div>
+<ul class="radioList" id="radioList"></ul>
+<details class="settings-panel">
+  <summary class="settings-toggle">// settings</summary>
+
+  <div class="settings-body">
+    
+    <div class="setting-row">
+      <span class="setting-label">Loop transition</span>
+      <div class="chip-row" id="loopModeRow">
+        <button class="chip active" data-mode="current">
+          Keep current moment
+        </button>
+
+        <button class="chip" data-mode="start">
+          Restart loop
+        </button>
+      </div>
+    </div>
+
+    <div class="setting-divider"></div>
+
+    <div class="setting-row">
+      <span class="setting-label">Selection Mode</span>
+      <div class="chip-row" id="sourceModeRow">
+        <button class="chip active" id="btnModeFixed">
+          Fixed Single
+        </button>
+
+        <button class="chip" id="btnModeShuffle">
+          Shuffle Playlist
+        </button>
+      </div>
+    </div>
+
+    <div class="setting-row" id="fixedSourceRow">
+      <span class="setting-label">Audio source</span>
+
+      <select class="file-selector" id="fileSelectorSettings">
+        {% for f in audio_files %}
+        <option value="{{ f }}">{{ f }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="setting-row setting-row-top"
+         id="shuffleSourceRow"
+         style="display:none;">
+
+      <span class="setting-label">Shuffle playlist</span>
+
+      <div class="source-list">
+        {% for f in audio_files %}
+        <label class="source-item">
+          <input type="checkbox"
+                 class="shuffle-track-cb"
+                 value="{{ f }}"
+                 checked>
+          <span>{{ f }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+    </div>
+
+  </div>
+</details>
      <div class="score-area">
         <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
         <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
@@ -82,6 +160,7 @@
 
   <script>
     // === STATE ===
+   
     let audio    = null;
     var freq     = null;
     let correct = 0;
@@ -106,17 +185,67 @@
     const SubmitNextBtn = document.getElementById('SubmitNextBtn');
     const InnerBox      = document.getElementById('InnerBox');
     const statusEl      = document.getElementById('status');
-    const fileSelector  = document.getElementById('fileSelector');
+    const fileSelector = document.getElementById('fileSelectorSettings');
     const scoreCorrectEl = document.getElementById("scoreCorrect");
     const scoreWrongEl   = document.getElementById("scoreWrong");
     const scoreStreakEl  = document.getElementById("scoreStreak");
+    const waveCanvas    = document.getElementById('waveCanvas');
+const waveContainer = document.getElementById('waveContainer');
+const loopOverlay   = document.getElementById('loopOverlay');
+const loopFill      = document.getElementById('loopFill');
+const handleIn      = document.getElementById('handleIn');
+const handleOut     = document.getElementById('handleOut');
+const loopInLabel   = document.getElementById('loopInLabel');
+const loopOutLabel  = document.getElementById('loopOutLabel');
+const renderBadge   = document.getElementById('renderBadge');
+const fixedSourceRow =
+  document.getElementById("fixedSourceRow");
+
+const shuffleSourceRow =
+  document.getElementById("shuffleSourceRow");
 
     document.getElementById("HomeBtn").addEventListener("click", () => {
     window.location.href = "/";
 });
+
+function getSelectedShuffleFile() {
+
+  const checked =
+    Array.from(
+      document.querySelectorAll('.shuffle-track-cb:checked')
+    ).map(cb => cb.value);
+
+  if (checked.length === 0) {
+    return fileSelector.value;
+  }
+
+  return checked[
+    Math.floor(Math.random() * checked.length)
+  ];
+}
+
+async function loadCurrentSelection() {
+
+  if (cfg.isShuffleMode) {
+
+    const randomFile =
+      getSelectedShuffleFile();
+
+    await loadFile(randomFile);
+
+  } else {
+
+    await loadFile(
+      document.getElementById(
+        'fileSelectorSettings'
+      ).value
+    );
+  }
+}
     // Pick an initial random target frequency
     var targetFreq = freqValues.get(newFreq());
     console.log('Target freq:', targetFreq);
+    
 
     // Read selected frequency from radio inputs
     freqs.forEach(function(radio) {
@@ -129,14 +258,29 @@
     function newFreq() {
       return Math.floor(Math.random() * 9).toString();
     }
-
+    function fmt(s) {
+  return s.toFixed(2) + 's';
+}
     function updateScore() {
       scoreCorrectEl.textContent = "✓ " + correct;
       scoreWrongEl.textContent   = "✗ " + wrong;
       scoreStreakEl.textContent  = "↯ " + streak;
     }
 
+    const AC = new (window.AudioContext || window.webkitAudioContext)();
 
+const cfg = {
+  loopFadeSecs: 0.020,
+  loopRestartOnSwitch: false,
+  eqGainDb: 12,
+  isShuffleMode: false
+};
+
+let rawBuffer = null;
+let loopBuffer = null;
+
+let loopIn = 0;
+let loopOut = 1;
     // === SUBMIT ===
     function submit() {
       stopPlayback();
@@ -178,6 +322,171 @@
       SubmitNextBtn.addEventListener('click', next, { once: true });
       updateScore();
     }
+    function drawWaveform(buf) {
+      const dpr = window.devicePixelRatio || 1;
+      const W   = waveContainer.clientWidth;
+      const H   = waveContainer.clientHeight;
+      waveCanvas.width        = W * dpr;
+      waveCanvas.height       = H * dpr;
+      waveCanvas.style.width  = W + 'px';
+      waveCanvas.style.height = H + 'px';
+
+      const ctx = waveCanvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, W, H);
+
+      if (!buf) {
+        ctx.strokeStyle = 'rgba(142,141,190,0.15)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+          const y = (H / 4) * i;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(142,141,190,0.25)';
+        ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+        return;
+      }
+
+      const ch0   = buf.getChannelData(0);
+      const ch1   = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+      const total = ch0.length;
+      const mid   = H / 2;
+
+      ctx.strokeStyle = 'rgba(142,141,190,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+      ctx.fillStyle = 'rgba(142,141,190,0.55)';
+      for (let col = 0; col < W; col++) {
+        const s0 = Math.floor((col / W) * total);
+        const s1 = Math.floor(((col + 1) / W) * total);
+        let mn = 0, mx = 0;
+        for (let s = s0; s < s1; s++) {
+          const v = ch1 ? (ch0[s] + ch1[s]) * 0.5 : ch0[s];
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+        }
+        ctx.fillRect(col, mid + mn * mid, 1, Math.max(1, (mx - mn) * mid));
+      }
+    }
+    
+    // ── Loop UI ───────────────────────────────────────────────────────
+    function updateLoopUI() {
+      loopFill.style.left  = (loopIn  * 100) + '%';
+      loopFill.style.width = ((loopOut - loopIn) * 100) + '%';
+      handleIn.style.left  = (loopIn  * 100) + '%';
+      handleOut.style.left = (loopOut * 100) + '%';
+      loopInLabel.textContent  = rawBuffer ? fmt(loopIn  * rawBuffer.duration) : '0.00s';
+      loopOutLabel.textContent = rawBuffer ? fmt(loopOut * rawBuffer.duration) : '--';
+    }
+
+    // ── Offline render -- Option B ────────────────────────────────────
+    // Extracts the loop region, applies an equal-power crossfade AT the loop
+    // point (tail blended into head), producing a seamless looping buffer.
+    async function renderLoopBuffer() {
+      if (!rawBuffer) return;
+      renderBadge.hidden = false;
+
+      const sr        = rawBuffer.sampleRate;
+      const nCh       = rawBuffer.numberOfChannels;
+      const inSample  = Math.floor(loopIn  * rawBuffer.length);
+      const outSample = Math.floor(loopOut * rawBuffer.length);
+      const regionLen = Math.max(outSample - inSample, 1);
+
+      // Fade length: requested ms, but never more than half the region
+      const fadeSamples = Math.min(
+        Math.round(cfg.loopFadeSecs * sr),
+        Math.floor(regionLen / 2)
+      );
+
+      // Find the peak amplitude in the region so we can normalise headroom.
+      // We target -6 dBFS (linear 0.5) so +12 dB boost stays clean.
+      let peak = 0;
+      for (let ch = 0; ch < nCh; ch++) {
+        const data = rawBuffer.getChannelData(ch);
+        for (let i = inSample; i < outSample; i++) {
+          const abs = Math.abs(data[i]);
+          if (abs > peak) peak = abs;
+        }
+      }
+      // Normalise to -6 dBFS headroom (0.5 linear). If peak is tiny, skip.
+      const normaliseGain = peak > 0.001 ? 0.5 / peak : 1.0;
+
+      const out = AC.createBuffer(nCh, regionLen, sr);
+
+      for (let ch = 0; ch < nCh; ch++) {
+        const src = rawBuffer.getChannelData(ch);
+        const dst = out.getChannelData(ch);
+
+        // 1. Copy region, applying normalisation
+        for (let i = 0; i < regionLen; i++) {
+          dst[i] = src[inSample + i] * normaliseGain;
+        }
+
+        // 2. Equal-power crossfade: blend the region's tail over its head.
+        //    This is the ONLY write pass -- no double-write bug.
+        //    At f=0:          tail weight=1, head weight=0  (tail dominates)
+        //    At f=fadeSamples: tail weight=0, head weight=1 (head dominates)
+        for (let f = 0; f < fadeSamples; f++) {
+          const angle   = (f / fadeSamples) * Math.PI * 0.5;
+          const wHead   = Math.sin(angle);  // 0 -> 1
+          const wTail   = Math.cos(angle);  // 1 -> 0
+
+          const headVal = src[inSample + f]                             * normaliseGain;
+          const tailVal = src[inSample + regionLen - fadeSamples + f]  * normaliseGain;
+
+          dst[f] = headVal * wHead + tailVal * wTail;
+        }
+      }
+
+      loopBuffer = out;
+      renderBadge.hidden = true;
+
+      // If already playing, hot-swap the buffer into the active slot
+      if (playingClip) {
+        const clip = playingClip;
+        playClip(clip);
+      }
+    }
+
+    function scheduleRender() {
+      clearTimeout(renderTimer);
+      renderTimer = setTimeout(renderLoopBuffer, 80);
+    }
+    new ResizeObserver(() => drawWaveform(rawBuffer))
+  .observe(waveContainer);
+    // ── Drag handles ──────────────────────────────────────────────────
+    function makeDraggable(handle, onMove) {
+      let dragging = false;
+      handle.addEventListener('pointerdown', e => {
+        dragging = true;
+        handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      handle.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const rect = loopOverlay.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        onMove(frac);
+        updateLoopUI();
+        scheduleRender();
+      });
+      handle.addEventListener('pointerup', () => { dragging = false; });
+    }
+    makeDraggable(handleIn,  frac => { loopIn  = Math.min(frac, loopOut - 0.02); });
+    makeDraggable(handleOut, frac => { loopOut = Math.max(frac, loopIn  + 0.02); });
+
+    loopOverlay.addEventListener('pointerdown', e => {
+      if (e.target === handleIn || e.target === handleOut) return;
+      const rect = loopOverlay.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if (Math.abs(frac - loopIn) < Math.abs(frac - loopOut))
+        loopIn  = Math.min(frac, loopOut - 0.02);
+      else
+        loopOut = Math.max(frac, loopIn  + 0.02);
+      updateLoopUI();
+      scheduleRender();
+    });
 
     function next() {
       // Re-enable radios
@@ -195,10 +504,16 @@
       InnerBox.style.borderColor = "";
       InnerBox.style.background  = "";
       // Reset status color to default (var(--accent3))
-      statusEl.style.color = "";
-      freq       = null;
-      targetFreq = freqValues.get(newFreq());
-    }
+statusEl.style.color = "";
+
+freq = null;
+targetFreq = freqValues.get(newFreq());
+
+if (cfg.isShuffleMode) {
+  loadCurrentSelection();
+}
+}
+
 
     // Attach initial submit listener
     SubmitNextBtn.addEventListener('click', submit, { once: true });
@@ -209,63 +524,190 @@
       // Preserve any inline color override; only touch className
       statusEl.className   = 'status ' + cls;
     }
+    async function loadFile(filename) {
+
+  const resp = await fetch(
+    '/raw-audio/?file=' +
+    encodeURIComponent(filename)
+  );
+
+  rawBuffer = await AC.decodeAudioData(
+    await resp.arrayBuffer()
+  );
+
+  drawWaveform(rawBuffer);
+  updateLoopUI();
+  await renderLoopBuffer();
+}
 
     // === STOP PLAYBACK ===
-    function stopPlayback() {
-      if (audio) {
-        audio.pause();
-        audio.src = '';
-        audio = null;
-      }
-      PlayStopBtn.textContent = "Play";
-      PlayStopBtn.classList.remove('playing');
-      setStatus('READY');
-    }
 
+    let currentSource = null;
+let currentGain = null;
+let isPlaying = false;
+function stopPlayback() {
+  if (currentSource) {
+    try {
+      currentSource.stop();
+    } catch(e) {}
+
+    currentSource.disconnect();
+    currentSource = null;
+  }
+
+  if (currentGain) {
+    currentGain.disconnect();
+    currentGain = null;
+  }
+
+  isPlaying = false;
+
+  PlayStopBtn.textContent = "Play";
+  PlayStopBtn.classList.remove("playing");
+  setStatus("READY");
+}
+  document.getElementById('loopModeRow').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+
+  document.querySelectorAll('#loopModeRow .chip')
+    .forEach(c => c.classList.remove('active'));
+
+  chip.classList.add('active');
+
+  cfg.loopRestartOnSwitch =
+    (chip.dataset.mode === 'start');
+});
+  document.getElementById('sourceModeRow').addEventListener('click', async e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+
+  document.querySelectorAll('#sourceModeRow .chip')
+    .forEach(c => c.classList.remove('active'));
+
+  chip.classList.add('active');
+
+  if (chip.id === 'btnModeShuffle') {
+    cfg.isShuffleMode = true;
+    fixedSourceRow.style.display = 'none';
+    shuffleSourceRow.style.display = 'block';
+  } else {
+    cfg.isShuffleMode = false;
+    fixedSourceRow.style.display = 'block';
+    shuffleSourceRow.style.display = 'none';
+  }
+
+  await loadCurrentSelection();
+});
     // === PLAY / STOP ===
     PlayStopBtn.addEventListener('click', async () => {
-      if (audio && !audio.paused) {
-        stopPlayback();
-        return;
-      }
 
+  if (isPlaying) {
+    stopPlayback();
+    return;
+  }
+
+  setStatus('PROCESSING...');
+  PlayStopBtn.disabled = true;
+
+  try {
+
+    if (AC.state === 'suspended') {
+      await AC.resume();
+    }
+
+    const selectedFile =
+      document.getElementById("fileSelectorSettings").value;
+
+    const url =
+      `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
+
+    const resp = await fetch(url);
+
+    if (!resp.ok) {
+      throw new Error(await resp.text());
+    }
+
+    const arrayBuffer = await resp.arrayBuffer();
+
+    const processedBuffer =
+      await AC.decodeAudioData(arrayBuffer);
+
+    const source = AC.createBufferSource();
+    source.buffer = loopBuffer;
+
+    const gain = AC.createGain();
+    gain.gain.value = 1;
+
+    source.connect(gain);
+    gain.connect(AC.destination);
+
+    source.loop = true;
+
+    if (loopBuffer) {
+
+      const startOffset =
+        loopIn * processedBuffer.duration;
+
+      const loopStart =
+        loopIn * processedBuffer.duration;
+
+      const loopEnd =
+        loopOut * processedBuffer.duration;
+
+      source.loopStart = loopStart;
+      source.loopEnd   = loopEnd;
+
+      source.start(0, startOffset);
+
+    } else {
+
+      source.start();
+    }
+
+    source.onended = () => {
       stopPlayback();
-      setStatus('PROCESSING…', 'loading');
-      PlayStopBtn.disabled = true;
+    };
 
-      try {
-        // Fetch EQ-processed audio from Django backend
-        const selectedFile = fileSelector.value;
-        const url          = `/audio/?freq=${targetFreq}&file=${encodeURIComponent(selectedFile)}`;
-        const resp         = await fetch(url);
+    currentSource = source;
+    currentGain = gain;
 
-        if (!resp.ok) {
-          const err = await resp.text();
-          throw new Error(err);
-        }
+    isPlaying = true;
 
-        const blob    = await resp.blob();
-        const blobUrl = URL.createObjectURL(blob);
+    PlayStopBtn.textContent = "Stop";
+    PlayStopBtn.classList.add("playing");
 
-        audio = new Audio(blobUrl);
-        audio.addEventListener('ended', stopPlayback);
-        audio.addEventListener('error', () => {
-          setStatus('PLAYBACK ERROR', 'error');
-          stopPlayback();
-        });
+    setStatus("PLAYING");
 
-        await audio.play();
+  }
+  catch(err) {
 
-        PlayStopBtn.textContent = "Stop";
-        PlayStopBtn.classList.add('playing');
-        setStatus('PLAYING');
-      } catch (err) {
-        setStatus('ERROR: ' + err.message, 'error');
-        stopPlayback();
-      } finally {
-        PlayStopBtn.disabled = false;
-      }
-    });
+    console.error(err);
+
+    setStatus(
+      "ERROR: " + err.message,
+      "error"
+    );
+
+    stopPlayback();
+  }
+  finally {
+    PlayStopBtn.disabled = false;
+  }
+});
+    window.addEventListener('load', async () => {
+  const selectedFile =
+    document.getElementById('fileSelectorSettings').value;
+
+  await loadFile(selectedFile);
+});
+document
+  .getElementById('fileSelectorSettings')
+  .addEventListener('change', async function() {
+
+    await loadFile(this.value);
+
+});
   </script>
 </body>
 </html>
