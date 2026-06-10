@@ -152,6 +152,7 @@
       <span class="score-chip correct-chip" id="scoreCorrect">✓ 0 Correct</span>
       <span class="score-chip wrong-chip"   id="scoreTotal">⌾ 0 Played</span>
       <span class="score-chip streak-chip"  id="scoreAvgErr">∿ — Avg Err</span>
+      <button type="button" id="DownloadCsvBtn" class="csv-btn" style="margin-left: 0.5rem;">CSV</button>
     </div>
   </div>
 
@@ -194,6 +195,68 @@ const scoreTotal       = document.getElementById('scoreTotal');
 const scoreAvgErr      = document.getElementById('scoreAvgErr');
 const fileSelector     = document.getElementById('fileSelector');
 
+// === REJESTR HISTORII TESTÓW DLA CSV ===
+let currentPlayingFile = 'unknown';
+const spatialHistory = [];
+
+function logSpatialRound(userAngle, targetAngle, degreeError, isCorrectData) {
+  try {
+    const activeMarginChip = document.querySelector('#errorMarginRow .chip.active');
+    const activeModeChip = document.querySelector('#shuffleRow .chip.active');
+    
+    const marginText = activeMarginChip ? activeMarginChip.textContent.trim() : 'unknown';
+
+    const logEntry = {
+      Timestamp: new Date().toISOString(),
+      AudioFile: currentPlayingFile, // Przechwycone Twoją metodą
+      ShuffleMode: isShuffleMode ? 'on' : 'off',
+      AllowedMargin: marginText,
+      TargetAzimuth: targetAngle,
+      UserAzimuth: userAngle,
+      DegreeError: degreeError,
+      IsCorrect: isCorrectData,
+      TotalRounds: playedCount,     // Dopasowane do Twojego licznika rund
+      TotalCorrect: correctCount    // Dopasowane do Twojego licznika punktów
+    };
+    
+    spatialHistory.push(logEntry);
+  } catch (e) {
+    console.error("Błąd zapisu rundy do CSV:", e);
+  }
+}
+
+function exportToCSV() {
+  try {
+    if (spatialHistory.length === 0) {
+      alert("Brak danych do wyeksportowania. Rozegraj przynajmniej jedną rundę i zatwierdź odpowiedź!");
+      return;
+    }
+    const headers = Object.keys(spatialHistory[0]);
+    const csvRows = [headers.join(',')];
+
+    for (const row of spatialHistory) {
+      const values = headers.map(header => {
+        const escaped = ('' + row[header]).replace(/"/g, '\\"');
+        return `"${escaped}"`;
+      });
+      csvRows.push(values.join(','));
+    }
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `spatial_results_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    alert("Wystąpił błąd podczas generowania pliku CSV.");
+    console.error(e);
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function setStatus(msg) { 
   if (statusEl) statusEl.textContent = msg; 
@@ -214,10 +277,11 @@ function getSelectedShuffleFile() {
 
 async function loadCurrentSelection() {
   if (isShuffleMode) {
-    const randomFile = getSelectedShuffleFile();
-    await loadAudioFile(randomFile);
+    currentPlayingFile = getSelectedShuffleFile();
+    await loadAudioFile(currentPlayingFile);
   } else {
-    await loadAudioFile(fileSelector.value);
+    currentPlayingFile = fileSelector.value;
+    await loadAudioFile(currentPlayingFile);
   }
 }
 
@@ -420,7 +484,7 @@ function submitAnswer() {
   scoreAvgErr.textContent  = `∿ ${avgErr}° Avg Err`;
 
   const actualLabel = actual === 0 ? 'Center' : `${Math.abs(actual)}° ${actual < 0 ? 'Left' : 'Right'}`;
-  const guessLabel  = guess  === 0 ? 'Center' : `${Math.abs(guess)}° ${guess < 0 ? 'Left' : 'Right'}`;
+  const guessLabel  = guess   === 0 ? 'Center' : `${Math.abs(guess)}° ${guess < 0 ? 'Left' : 'Right'}`;
 
   if (isCorrect) {
     AnsIndicator.textContent = 'Correct!';
@@ -445,6 +509,9 @@ function submitAnswer() {
     : `Incorrect Answer :( Error: ${error}° (needed ≤${ERROR_MARGIN_DEG}°)
        <span class="result-detail">Sound was at ${actualLabel} — you guessed ${guessLabel}</span>`;
   resultFeedback.style.display = 'block';
+
+  // === ZAPISUJEMY CAŁĄ RUNDĘ DO STATYSTYK CSV ===
+  logSpatialRound(guess, actual, error, isCorrect);
 
   submitBtn.disabled = true;
   playBtn.classList.remove('playing');
@@ -486,6 +553,13 @@ nextBtn.addEventListener('click', async () => {
   }
   startRound();
 });
+
+// === POWIĄZANIE PRZYCISKU CSV ===
+const DownloadCsvBtn = document.getElementById('DownloadCsvBtn');
+if (DownloadCsvBtn) {
+  DownloadCsvBtn.addEventListener('click', exportToCSV);
+}
+
 
 // Settings layout settings interaction receivers
 document.querySelectorAll('.settings-panel .chip').forEach(chip => {
