@@ -131,6 +131,7 @@
     <span class="score-chip correct-chip" id="scoreCorrect">✓ 0</span>
     <span class="score-chip wrong-chip"   id="scoreWrong">✗ 0</span>
     <span class="score-chip streak-chip"  id="scoreStreak">↯ 0</span>
+    <button type="button" id="DownloadCsvBtn" class="csv-btn">CSV</button>
   </div>
 </div>
 
@@ -162,6 +163,76 @@
   let matchVersion = null;
   let answered = false;
   let correct = 0, wrong = 0, streak = 0;
+
+  // === ZMIENNA PRZECHWYTUJĄCA AKTUALNY UTWÓR ===
+  let currentPlayingFile = 'unknown';
+
+  // === REJESTR HISTORII TESTÓW DLA CSV ===
+  const bandwidthHistory = [];
+
+  function logBandwidthRound(userChoice, isCorrectData) {
+    try {
+      const activePresetChip = document.querySelector('#presetRow .chip.active');
+      const presetName = activePresetChip ? activePresetChip.textContent.trim() : 'Custom';
+      
+      // Wyciągamy informacje o filtrach dolno/górnoprzepustowych z bieżącej rundy
+      // format pasma: np. "0-44000 Hz" dla pełnego pasma lub "200-8000 Hz"
+      const currentXFilter = round && round.X ? `${round.X[0]}-${round.X[1]}Hz` : 'unknown';
+      const currentAltFilter = round && round.A && round.B ? 
+        (matchVersion === 'A' ? `${round.B[0]}-${round.B[1]}Hz` : `${round.A[0]}-${round.A[1]}Hz`) : 'unknown';
+
+      const logEntry = {
+        Timestamp: new Date().toISOString(),
+        AudioFile: currentPlayingFile, // Twój sprawdzony mechanizm przechwytywania nazwy pliku
+        ShuffleMode: cfg.isShuffleMode ? 'on' : 'off',
+        ActivePreset: presetName,
+        ReferenceFilterX: currentXFilter,
+        AlternativeFilter: currentAltFilter,
+        CorrectAnswer: matchVersion,
+        UserAnswer: userChoice,
+        IsCorrect: isCorrectData,
+        TotalCorrect: correct,
+        TotalWrong: wrong,
+        CurrentStreak: streak
+      };
+      
+      bandwidthHistory.push(logEntry);
+    } catch (e) {
+      console.error("Błąd zapisu rundy do CSV:", e);
+    }
+  }
+
+  function exportToCSV() {
+    try {
+      if (bandwidthHistory.length === 0) {
+        alert("Brak danych do wyeksportowania. Rozegraj przynajmniej jedną rundę i zatwierdź odpowiedź!");
+        return;
+      }
+      const headers = Object.keys(bandwidthHistory[0]);
+      const csvRows = [headers.join(',')];
+
+      for (const row of bandwidthHistory) {
+        const values = headers.map(header => {
+          const escaped = ('' + row[header]).replace(/"/g, '\\"');
+          return `"${escaped}"`;
+        });
+        csvRows.push(values.join(','));
+      }
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `bandwidth_results_${new Date().toISOString().slice(0,10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      alert("Wystąpił błąd podczas generowania pliku CSV.");
+      console.error(e);
+    }
+  }
 
   let rawBuffer = null;
   let loopBuffer = null;
@@ -396,16 +467,21 @@
 
   async function loadCurrentSelection() {
     if (cfg.isShuffleMode) {
-      await loadFile(getSelectedShuffleFile());
+      const randomFile = getSelectedShuffleFile();
+      currentPlayingFile = randomFile; // Przechwytujemy wylosowany plik przy Shuffle
+      await loadFile(randomFile);
     } else {
+      currentPlayingFile = fileSelector.value; // Przechwytujemy wybrany stały plik
       await loadFile(fileSelector.value);
     }
   }
 
   fileSelector.addEventListener('change', async () => {
-    if (!cfg.isShuffleMode) await loadFile(fileSelector.value);
+    if (!cfg.isShuffleMode) {
+      currentPlayingFile = fileSelector.value; // Przechwytujemy zmianę na liście rozwijanej
+      await loadFile(fileSelector.value);
+    }
   });
-
   // ── Tworzenie Nowego Testu (Logika Poziomów Trudności) ───────────────
   function CreateNewBandwidthTest() {
     const len = bandfilterPairs.length;
@@ -561,7 +637,7 @@
   PlayABtn.addEventListener('click', async () => { await ensureReady(); playSample(round.A, 'A'); });
   PlayBBtn.addEventListener('click', async () => { await ensureReady(); playSample(round.B, 'B'); });
 
-  // ── Walidacja Odpowiedzi (Submit / Next) ───────────────────────────
+// ── Walidacja Odpowiedzi (Submit / Next) ───────────────────────────
   function submit() {
     stopPlayback(0.005);
     const selected = document.querySelector('input[name="answer"]:checked');
@@ -583,12 +659,18 @@
       InnerBox.style.borderColor = "var(--accent2)";
       InnerBox.style.background = "rgba(129,244,149,0.10)";
       AnsIndicator.style.color = "var(--accent2)";
+
+      // === ZAPIS DO CSV (SUKCES) ===
+      logBandwidthRound(answer, true);
     } else {
       wrong++; streak = 0;
       AnsIndicator.textContent = `Incorrect :( X = ${matchVersion} (${fmtBand(round.X)}). You picked ${answer} (${fmtBand(round[answer])}).`;
       InnerBox.style.borderColor = "var(--wrong-hard)";
       InnerBox.style.background = "rgba(255,111,89,0.10)";
       AnsIndicator.style.color = "var(--wrong-light)";
+
+      // === ZAPIS DO CSV (PORAŻKA) ===
+      logBandwidthRound(answer, false);
     }
 
     document.querySelectorAll('input[name="answer"]').forEach(r => r.disabled = true);
@@ -675,7 +757,12 @@
 
   // Automatyczne dopasowanie płótna przy zmianie rozmiaru okna
   new ResizeObserver(() => drawWaveform(rawBuffer)).observe(waveContainer);
-
+  
+  // Powiązanie przycisku pobierania pliku CSV
+  const DownloadCsvBtn = document.getElementById('DownloadCsvBtn');
+  if (DownloadCsvBtn) {
+    DownloadCsvBtn.addEventListener('click', exportToCSV);
+  }
   // Inicjalizacja pierwszej rundy
   CreateNewBandwidthTest();
   SubmitNextBtn.onclick = submit;
