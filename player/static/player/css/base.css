@@ -44,22 +44,25 @@ html, body {
 
 /* ── CSV Export Button ──────────────────────────────────────────── */
 .csv-btn {
-    flex: 1;
-    padding: clamp(0.45rem, 1.3vw, 0.75rem) clamp(0.6rem, 1.8vw, 1rem);
-    border: 2px solid var(--accent2);
-    border-radius: 0.6rem;
-    background: transparent;
-    color: var(--accent2);
-    font-family: 'Roboto Mono', monospace;
-    font-size: clamp(0.8rem, 1.8vw, 1rem);
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.13s ease, color 0.13s ease, border-color 0.13s ease;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.6rem;
+  font-family: inherit;
+  font-size: clamp(0.65rem, 1.4vw, 0.75rem);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-left: auto; /* Odpycha przycisk do prawej strony */
+  transition: all 0.2s ease;
 }
+
 .csv-btn:hover {
-    background: var(--accent2);
-    color: var(--bg);
+  color: var(--text);
+  border-color: var(--accent1);
+  background: rgba(142, 141, 190, 0.1);
 }
+
 .csv-btn:active {
   transform: scale(0.96);
 }
